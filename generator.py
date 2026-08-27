@@ -1,4 +1,5 @@
 import os
+from PIL import Image
 
 files = {
     "settings.gradle.kts": """pluginManagement {
@@ -43,8 +44,8 @@ android {
         applicationId = "com.stream.hitv"
         minSdk = 24
         targetSdk = 34
-        versionCode = 14
-        versionName = "14.0"
+        versionCode = 15
+        versionName = "15.0"
     }
 
     compileOptions {
@@ -189,6 +190,7 @@ object MediaRepository {
     )
 
     val mediaList = mutableStateListOf<MediaItem>(
+        // الأنمي
         MediaItem(
             "a1", "Solo Leveling: Arise",
             "في عالم مليء بالبوابات والوحوش القاتلة، يستيقظ أضعف صياد في العالم بقدرة غير محدودة لتغيير مصير البشرية.",
@@ -217,6 +219,7 @@ object MediaRepository {
             "https://image.tmdb.org/t/p/original/nTPKWc0iE3U5eU4yJpE3K7kY2mK.jpg",
             9.8, "2024", "anime", "أنمي شياطين 🗡️", generateEpisodes(8)
         ),
+        // المسلسلات
         MediaItem(
             "s1", "The Seoul Mystery",
             "دراما كورية مشوقة تدور حول محقق جنائي بارع يواجه شبكة أسرار غامضة تهدد العاصمة بأكملها.",
@@ -231,6 +234,7 @@ object MediaRepository {
             "https://image.tmdb.org/t/p/original/etj5xUAoON507G9Sc0e3T2y92g0.jpg",
             9.5, "2024", "series", "صراع عروش 🐉", generateEpisodes(8, "65m")
         ),
+        // الأفلام
         MediaItem(
             "m1", "Dune: Part Two",
             "بول أتريدس يتحد مع تشاني والشعب الصحراوي في رحلة انتقام ملحمية ضد المتآمرين الذين دمروا عائلته.",
@@ -876,31 +880,33 @@ for path, content in files.items():
         f.write(content.strip())
     print(f"Generated: {path}")
 
-# 2. أخذ ملف صورتك الحقيقية icon.png وتوليد جميع مقاسات أندرويد تلقائياً بدقة متناهية
-if os.path.exists("icon.png"):
-    try:
-        from PIL import Image
-        print("🎨 جاري معالجة صورتك الأصلية icon.png وتحويلها لأيقونات أندرويد...")
-        src_img = Image.open("icon.png").convert("RGBA")
-        
-        targets = [
-            ("app/src/main/res/mipmap-mdpi", 48),
-            ("app/src/main/res/mipmap-hdpi", 72),
-            ("app/src/main/res/mipmap-xhdpi", 96),
-            ("app/src/main/res/mipmap-xxhdpi", 144),
-            ("app/src/main/res/mipmap-xxxhdpi", 192),
-            ("app/src/main/res/drawable", 192)
-        ]
-        
-        for folder, size in targets:
-            os.makedirs(folder, exist_ok=True)
-            resized = src_img.resize((size, size), Image.Resampling.LANCZOS)
-            resized.save(os.path.join(folder, "ic_launcher.png"), "PNG")
-            resized.save(os.path.join(folder, "ic_launcher_round.png"), "PNG")
-            print(f"✔️ تم إنشاء الأيقونة بمقاس ({size}x{size}) في: {folder}")
-            
-        print("🎉 تم تحويل صورتك الأصلية بنجاح 100%!")
-    except Exception as e:
-        print(f"تحذير: {e}")
+# 2. البحث الذكي عن صورتك الشفافة مهما كان اسمها ومعالجتها
+png_candidates = [f for f in os.listdir(".") if f.lower().endswith(".png") and not f.startswith(".")]
+if png_candidates:
+    icon_source = png_candidates[0]
+    print(f"🎨 تم العثور على صورتك المرفوعة: {icon_source}")
+    logo = Image.open(icon_source).convert("RGBA")
+    
+    # دمج الصورة فوق خلفية كحلية متناسقة 512x512
+    bg = Image.new("RGBA", (512, 512), (13, 34, 58, 255))
+    logo.thumbnail((420, 420), Image.Resampling.LANCZOS)
+    offset = ((512 - logo.width) // 2, (512 - logo.height) // 2)
+    bg.paste(logo, offset, mask=logo)
+    
+    # حفظ الأيقونة الحقيقية بجميع مقاسات أندرويد
+    densities = {
+        "app/src/main/res/mipmap-mdpi/ic_launcher.png": 48,
+        "app/src/main/res/mipmap-hdpi/ic_launcher.png": 72,
+        "app/src/main/res/mipmap-xhdpi/ic_launcher.png": 96,
+        "app/src/main/res/mipmap-xxhdpi/ic_launcher.png": 144,
+        "app/src/main/res/mipmap-xxxhdpi/ic_launcher.png": 192,
+        "app/src/main/res/drawable/ic_launcher.png": 192,
+    }
+    for p, sz in densities.items():
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        r = bg.resize((sz, sz), Image.Resampling.LANCZOS)
+        r.save(p, "PNG")
+        r.save(p.replace("ic_launcher", "ic_launcher_round"), "PNG")
+        print(f"Icon PNG Ready -> {p}")
 
-print("ALL_FILES_GENERATED_SUCCESSFULLY_100%")
+print("ALL_DONE_SUCCESSFULLY_100%")
