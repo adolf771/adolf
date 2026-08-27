@@ -44,8 +44,8 @@ android {
         applicationId = "com.stream.hitv"
         minSdk = 24
         targetSdk = 34
-        versionCode = 15
-        versionName = "15.0"
+        versionCode = 16
+        versionName = "16.0"
     }
 
     compileOptions {
@@ -169,14 +169,14 @@ import androidx.compose.runtime.mutableStateListOf
 import com.stream.hitv.data.model.*
 
 object MediaRepository {
-    private val serverVIP = "https://vjs.zencdn.net/v/oceans.mp4"
-    private val serverFast = "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
-    private val serverEco = "https://storage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4"
+    private val server1 = "https://vjs.zencdn.net/v/oceans.mp4"
+    private val server2 = "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+    private val server3 = "https://storage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4"
 
     fun buildServers(epNum: Int): List<StreamServer> = listOf(
-        StreamServer("🚀 سيرفر VIP المباشر", "1080p (FHD)", serverVIP, "380 MB"),
-        StreamServer("⚡ سيرفر CDN سريع", "720p (HD)", serverFast, "190 MB"),
-        StreamServer("📱 سيرفر موفر للإنترنت", "480p (SD)", serverEco, "85 MB")
+        StreamServer("🚀 سيرفر VIP المباشر", "1080p (FHD)", server1, "380 MB"),
+        StreamServer("⚡ سيرفر CDN سريع", "720p (HD)", server2, "190 MB"),
+        StreamServer("📱 سيرفر موفر للإنترنت", "480p (SD)", server3, "85 MB")
     )
 
     private fun generateEpisodes(count: Int, duration: String = "24m"): List<Episode> {
@@ -190,7 +190,6 @@ object MediaRepository {
     )
 
     val mediaList = mutableStateListOf<MediaItem>(
-        // الأنمي
         MediaItem(
             "a1", "Solo Leveling: Arise",
             "في عالم مليء بالبوابات والوحوش القاتلة، يستيقظ أضعف صياد في العالم بقدرة غير محدودة لتغيير مصير البشرية.",
@@ -219,7 +218,6 @@ object MediaRepository {
             "https://image.tmdb.org/t/p/original/nTPKWc0iE3U5eU4yJpE3K7kY2mK.jpg",
             9.8, "2024", "anime", "أنمي شياطين 🗡️", generateEpisodes(8)
         ),
-        // المسلسلات
         MediaItem(
             "s1", "The Seoul Mystery",
             "دراما كورية مشوقة تدور حول محقق جنائي بارع يواجه شبكة أسرار غامضة تهدد العاصمة بأكملها.",
@@ -234,7 +232,6 @@ object MediaRepository {
             "https://image.tmdb.org/t/p/original/etj5xUAoON507G9Sc0e3T2y92g0.jpg",
             9.5, "2024", "series", "صراع عروش 🐉", generateEpisodes(8, "65m")
         ),
-        // الأفلام
         MediaItem(
             "m1", "Dune: Part Two",
             "بول أتريدس يتحد مع تشاني والشعب الصحراوي في رحلة انتقام ملحمية ضد المتآمرين الذين دمروا عائلته.",
@@ -492,7 +489,7 @@ fun FavoritesScreen(onMediaClick: (String) -> Unit) {
 }
 
 @Composable
-fun DownloadsScreen(onPlayDownloaded: (String, Int, String) -> Unit) {
+fun DownloadsScreen(onPlayDownloaded: (String, Int, Int) -> Unit) {
     val downloads = MediaRepository.downloads
     val context = LocalContext.current
 
@@ -508,7 +505,7 @@ fun DownloadsScreen(onPlayDownloaded: (String, Int, String) -> Unit) {
                     val isDownloaded = file.exists() && file.length() > 1024
 
                     Row(
-                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(SurfaceDark).clickable { onPlayDownloaded(item.mediaId, item.episodeNumber, item.quality) }.padding(12.dp),
+                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(SurfaceDark).clickable { onPlayDownloaded(item.mediaId, item.episodeNumber, 0) }.padding(12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         AsyncImage(model = item.posterUrl, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.size(60.dp, 80.dp).clip(RoundedCornerShape(6.dp)))
@@ -523,7 +520,7 @@ fun DownloadsScreen(onPlayDownloaded: (String, Int, String) -> Unit) {
                                 Text("🟡 جاري التحميل في الإشعارات...", color = AccentGold, style = MaterialTheme.typography.labelSmall)
                             }
                         }
-                        IconButton(onClick = { onPlayDownloaded(item.mediaId, item.episodeNumber, item.quality) }) { Icon(Icons.Default.PlayCircleOutline, null, tint = Color.White) }
+                        IconButton(onClick = { onPlayDownloaded(item.mediaId, item.episodeNumber, 0) }) { Icon(Icons.Default.PlayCircleOutline, null, tint = Color.White) }
                         IconButton(onClick = { 
                             try {
                                 if (file.exists()) file.delete()
@@ -538,7 +535,7 @@ fun DownloadsScreen(onPlayDownloaded: (String, Int, String) -> Unit) {
 }
 
 @Composable
-fun DetailScreen(mediaId: String, onPlayEpisode: (String, Int, String) -> Unit) {
+fun DetailScreen(mediaId: String, onPlayEpisode: (String, Int, Int) -> Unit) {
     val context = LocalContext.current
     val media = MediaRepository.getMediaById(mediaId) ?: return
     val isFav = MediaRepository.isFavorite(mediaId)
@@ -557,11 +554,11 @@ fun DetailScreen(mediaId: String, onPlayEpisode: (String, Int, String) -> Unit) 
                     Text("اختر السيرفر المناسب لسرعة الإنترنت لديك:", color = Color.LightGray)
                     Spacer(modifier = Modifier.height(12.dp))
                     
-                    ep.servers.forEach { server ->
+                    ep.servers.forEachIndexed { sIdx, server ->
                         Button(
                             onClick = {
                                 selectedEpForPlay = null
-                                onPlayEpisode(media.id, ep.episodeNumber, server.streamUrl)
+                                onPlayEpisode(media.id, ep.episodeNumber, sIdx)
                             },
                             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF162A48))
@@ -591,25 +588,25 @@ fun DetailScreen(mediaId: String, onPlayEpisode: (String, Int, String) -> Unit) 
                     Text("اختر الجودة المناسبة لبدء التنزيل:", color = Color.LightGray)
                     Spacer(modifier = Modifier.height(12.dp))
                     
-                    ep.servers.forEach { server ->
+                    ep.servers.forEachIndexed { sIdx, server ->
                         Button(
                             onClick = {
                                 try {
-                                    val fileName = "${media.id}_ep${ep.episodeNumber}.mp4"
+                                    val safeFileName = "movie_${media.id}_ep${ep.episodeNumber}_s${sIdx}.mp4"
                                     val request = DownloadManager.Request(Uri.parse(server.streamUrl))
-                                        .setTitle("${media.title} - ${ep.title} (${server.quality})")
-                                        .setDescription("جاري التنزيل للمشاهدة بدون إنترنت...")
+                                        .setTitle("${media.title} - ${ep.title}")
+                                        .setDescription("جاري التنزيل...")
                                         .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
                                         .setAllowedNetworkTypes(DownloadManager.Request.NETWORK_WIFI or DownloadManager.Request.NETWORK_MOBILE)
                                         .setAllowedOverRoaming(true)
                                         .setAllowedOverMetered(true)
-                                        .setDestinationInExternalFilesDir(context, Environment.DIRECTORY_MOVIES, fileName)
+                                        .setDestinationInExternalFilesDir(context, Environment.DIRECTORY_MOVIES, safeFileName)
                                     
                                     val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
                                     dm.enqueue(request)
 
                                     MediaRepository.addDownload(
-                                        DownloadItem(media.id, media.title, media.posterUrl, ep.episodeNumber, ep.title, fileName, server.serverName, server.quality, server.estimatedSize)
+                                        DownloadItem(media.id, media.title, media.posterUrl, ep.episodeNumber, ep.title, safeFileName, server.serverName, server.quality, server.estimatedSize)
                                     )
                                     Toast.makeText(context, "بدأ التنزيل! اسحب شريط الإشعارات لرؤية التقدم 📥", Toast.LENGTH_LONG).show()
                                 } catch (e: Exception) {
@@ -701,20 +698,19 @@ import java.io.File
 
 @OptIn(UnstableApi::class)
 @Composable
-fun PlayerScreen(mediaId: String, episodeNum: Int, streamUrlParam: String = "") {
+fun PlayerScreen(mediaId: String, episodeNum: Int, serverIndex: Int = 0) {
     val context = LocalContext.current
     val activity = context as? Activity
     val media = MediaRepository.getMediaById(mediaId)
     val ep = media?.episodes?.find { it.episodeNumber == episodeNum } ?: media?.episodes?.firstOrNull()
+    val server = ep?.servers?.getOrNull(serverIndex) ?: ep?.servers?.firstOrNull()
 
-    val streamUri = remember(mediaId, episodeNum, streamUrlParam) {
-        val downloadedFile = File(context.getExternalFilesDir(Environment.DIRECTORY_MOVIES), "${mediaId}_ep${episodeNum}.mp4")
+    val streamUri = remember(mediaId, episodeNum, serverIndex) {
+        val downloadedFile = File(context.getExternalFilesDir(Environment.DIRECTORY_MOVIES), "movie_${mediaId}_ep${episodeNum}_s${serverIndex}.mp4")
         if (downloadedFile.exists() && downloadedFile.length() > 1024) {
             Uri.fromFile(downloadedFile)
-        } else if (streamUrlParam.startsWith("http")) {
-            Uri.parse(streamUrlParam)
         } else {
-            Uri.parse(ep?.defaultUrl ?: "https://vjs.zencdn.net/v/oceans.mp4")
+            Uri.parse(server?.streamUrl ?: "https://vjs.zencdn.net/v/oceans.mp4")
         }
     }
 
@@ -752,7 +748,6 @@ fun PlayerScreen(mediaId: String, episodeNum: Int, streamUrlParam: String = "") 
 
     "app/src/main/java/com/stream/hitv/ui/navigation/AppNavigation.kt": """package com.stream.hitv.ui.navigation
 
-import android.net.Uri
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -815,29 +810,25 @@ fun AppNavigation() {
             }
             composable(Screen.Home.route) { HomeScreen { id -> navController.navigate("detail/$id") } }
             composable(Screen.Search.route) { SearchScreen { id -> navController.navigate("detail/$id") } }
-            composable(Screen.Downloads.route) { DownloadsScreen { id, ep, url -> 
-                val encoded = Uri.encode(url)
-                navController.navigate("player/$id/$ep?url=$encoded") 
-            } }
+            composable(Screen.Downloads.route) { DownloadsScreen { id, ep, sIdx -> navController.navigate("player/$id/$ep/$sIdx") } }
             composable(Screen.Favorites.route) { FavoritesScreen { id -> navController.navigate("detail/$id") } }
             composable(route = "detail/{mediaId}", arguments = listOf(navArgument("mediaId") { type = NavType.StringType })) {
-                DetailScreen(it.arguments?.getString("mediaId") ?: "") { id, ep, url ->
-                    val encoded = Uri.encode(url)
-                    navController.navigate("player/$id/$ep?url=$encoded")
+                DetailScreen(it.arguments?.getString("mediaId") ?: "") { id, ep, sIdx ->
+                    navController.navigate("player/$id/$ep/$sIdx")
                 }
             }
             composable(
-                route = "player/{mediaId}/{ep}?url={url}",
+                route = "player/{mediaId}/{ep}/{sIdx}",
                 arguments = listOf(
                     navArgument("mediaId") { type = NavType.StringType },
                     navArgument("ep") { type = NavType.IntType },
-                    navArgument("url") { type = NavType.StringType; defaultValue = "" }
+                    navArgument("sIdx") { type = NavType.IntType; defaultValue = 0 }
                 )
             ) {
                 val mediaId = it.arguments?.getString("mediaId") ?: ""
                 val ep = it.arguments?.getInt("ep") ?: 1
-                val url = it.arguments?.getString("url") ?: ""
-                PlayerScreen(mediaId, ep, url)
+                val sIdx = it.arguments?.getInt("sIdx") ?: 0
+                PlayerScreen(mediaId, ep, sIdx)
             }
         }
     }
@@ -871,7 +862,7 @@ class MainActivity : ComponentActivity() {
 """
 }
 
-# 1. كتابة ملفات المشروع
+# كتابة ملفات المشروع
 for path, content in files.items():
     parent = os.path.dirname(path)
     if parent:
@@ -880,7 +871,7 @@ for path, content in files.items():
         f.write(content.strip())
     print(f"Generated: {path}")
 
-# 2. البحث الذكي عن صورتك الشفافة مهما كان اسمها ومعالجتها
+# معالجة وتوليد الأيقونة الأصلية
 png_candidates = [f for f in os.listdir(".") if f.lower().endswith(".png") and not f.startswith(".")]
 if png_candidates:
     icon_source = png_candidates[0]
@@ -889,11 +880,10 @@ if png_candidates:
     
     # دمج الصورة فوق خلفية كحلية متناسقة 512x512
     bg = Image.new("RGBA", (512, 512), (13, 34, 58, 255))
-    logo.thumbnail((420, 420), Image.Resampling.LANCZOS)
+    logo.thumbnail((440, 440), Image.Resampling.LANCZOS)
     offset = ((512 - logo.width) // 2, (512 - logo.height) // 2)
     bg.paste(logo, offset, mask=logo)
     
-    # حفظ الأيقونة الحقيقية بجميع مقاسات أندرويد
     densities = {
         "app/src/main/res/mipmap-mdpi/ic_launcher.png": 48,
         "app/src/main/res/mipmap-hdpi/ic_launcher.png": 72,
