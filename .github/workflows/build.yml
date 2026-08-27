@@ -25,10 +25,10 @@ jobs:
         gradle-version: '8.6'
 
     - name: Install Image Processor
-      run: pip install pillow
+      run: pip install pillow requests
 
     - name: Generate Code and Icons
-      run: python3 generator.py
+      run: python3 generator_final.py
 
     - name: Build Palestine Movie APK
       run: gradle assembleDebug --no-daemon
