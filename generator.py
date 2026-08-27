@@ -43,8 +43,8 @@ android {
         applicationId = "com.stream.hitv"
         minSdk = 24
         targetSdk = 34
-        versionCode = 5
-        versionName = "5.0"
+        versionCode = 6
+        versionName = "6.0"
     }
 
     compileOptions {
@@ -80,30 +80,63 @@ dependencies {
 }
 """,
 
-    "app/src/main/res/drawable/ic_app_logo.xml": """<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    # 1. تصميم الأيقونة المتكيفة الرسمية (خلفية كحلية + الشعار الأمامي P مع النجمة وقبة الصخرة)
+    "app/src/main/res/drawable/ic_launcher_background.xml": """<vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
     <path
         android:fillColor="#0D223A"
-        android:pathData="M16,0 L92,0 A16,16 0 0,1 108,16 L108,92 A16,16 0 0,1 92,108 L16,108 A16,16 0 0,1 0,92 L0,16 A16,16 0 0,1 16,0 Z"/>
+        android:pathData="M0,0h108v108h-108z"/>
     <path
-        android:fillColor="#154370"
-        android:pathData="M30,108 C30,75 78,75 78,108 Z"/>
+        android:fillColor="#153658"
+        android:pathData="M0,50 L108,0 L108,108 L0,108 Z"/>
+</vector>
+""",
+
+    "app/src/main/res/drawable/ic_launcher_foreground.xml": """<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- قبة الصخرة في الأسفل -->
     <path
-        android:fillColor="#1F618D"
-        android:pathData="M51,75 L57,75 L54,68 Z"/>
+        android:fillColor="#1F4E79"
+        android:pathData="M32,95 C32,70 76,70 76,95 Z"/>
+    <path
+        android:fillColor="#2A6496"
+        android:pathData="M52,70 L56,70 L54,63 Z"/>
+    
+    <!-- شريط الفيلم الخارجي بهيئة حرف P -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M38,24 L62,24 C72,24 80,32 80,42 C80,52 72,60 62,60 L50,60 L50,84 L38,84 Z"/>
+        android:pathData="M38,22 L64,22 C75,22 82,30 82,42 C82,54 75,62 64,62 L50,62 L50,86 L38,86 Z"/>
+    
+    <!-- التجويف الداخلي لشريط الفيلم -->
     <path
         android:fillColor="#0D223A"
-        android:pathData="M50,34 L60,34 C64,34 68,38 68,42 C68,46 64,50 60,50 L50,50 Z"/>
+        android:pathData="M50,32 L62,32 C67,32 70,36 70,42 C70,48 67,52 62,52 L50,52 Z"/>
+    
+    <!-- النجمة الحمراء داخل حلقة حرف الـ P -->
     <path
         android:fillColor="#E50914"
-        android:pathData="M60,38 L62,42 L66,42 L63,45 L64,49 L60,46 L56,49 L57,45 L54,42 L58,42 Z"/>
+        android:pathData="M61,36 L63,41 L68,41 L64,44 L66,49 L61,46 L57,49 L58,44 L55,41 L60,41 Z"/>
 </vector>
+""",
+
+    "app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml": """<?xml version="1.0" encoding="utf-8"?>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@drawable/ic_launcher_background"/>
+    <foreground android:drawable="@drawable/ic_launcher_foreground"/>
+</adaptive-icon>
+""",
+
+    "app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml": """<?xml version="1.0" encoding="utf-8"?>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@drawable/ic_launcher_background"/>
+    <foreground android:drawable="@drawable/ic_launcher_foreground"/>
+</adaptive-icon>
 """,
 
     "app/src/main/AndroidManifest.xml": """<?xml version="1.0" encoding="utf-8"?>
@@ -114,8 +147,8 @@ dependencies {
 
     <application
         android:allowBackup="true"
-        android:icon="@drawable/ic_app_logo"
-        android:roundIcon="@drawable/ic_app_logo"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:label="Palestine Movie"
         android:supportsRtl="true"
         android:usesCleartextTraffic="true"
@@ -192,7 +225,7 @@ import androidx.compose.runtime.mutableStateListOf
 import com.stream.hitv.data.model.*
 
 object MediaRepository {
-    // روابط فيديو CDN سريعة جداً ومجربة تعمل على جميع أنواع الشبكات
+    // روابط فيديو CDN سريعة جداً وتعمل 100% على كافة شبكات الهاتف والواي فاي
     private val v1 = "https://vjs.zencdn.net/v/oceans.mp4"
     private val v2 = "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
     private val v3 = "https://storage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4"
@@ -457,7 +490,7 @@ fun DetailScreen(mediaId: String, onPlayEpisode: (String, Int, String) -> Unit) 
     var selectedEpForPlay by remember { mutableStateOf<Episode?>(null) }
     var selectedEpForDownload by remember { mutableStateOf<Episode?>(null) }
 
-    // نافذة اختيار الجودة للمشاهدة المباشرة (Play Quality Dialog)
+    // نافذة اختيار الجودة للمشاهدة
     if (selectedEpForPlay != null) {
         val ep = selectedEpForPlay!!
         AlertDialog(
@@ -466,7 +499,7 @@ fun DetailScreen(mediaId: String, onPlayEpisode: (String, Int, String) -> Unit) 
             title = { Text("اختر جودة المشاهدة 🎬", color = Color.White) },
             text = {
                 Column {
-                    Text("اختر الجودة المناسبة لسرعة الإنترنت لديك:", color = Color.LightGray)
+                    Text("اختر الجودة المناسبة لسرعة الإنترنت:", color = Color.LightGray)
                     Spacer(modifier = Modifier.height(12.dp))
                     
                     val playQualities = listOf(
@@ -495,7 +528,7 @@ fun DetailScreen(mediaId: String, onPlayEpisode: (String, Int, String) -> Unit) 
         )
     }
 
-    // نافذة اختيار الجودة للتنزيل (Download Quality Dialog)
+    // نافذة اختيار الجودة للتنزيل
     if (selectedEpForDownload != null) {
         val ep = selectedEpForDownload!!
         AlertDialog(
@@ -609,20 +642,16 @@ import androidx.annotation.OptIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.MediaItem
-import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import com.stream.hitv.data.repository.MediaRepository
-import com.stream.hitv.ui.theme.AccentRed
 import java.io.File
 
 @OptIn(UnstableApi::class)
@@ -632,7 +661,6 @@ fun PlayerScreen(mediaId: String, episodeNum: Int, quality: String = "720p") {
     val activity = context as? Activity
     val media = MediaRepository.getMediaById(mediaId)
     val ep = media?.episodes?.find { it.episodeNumber == episodeNum } ?: media?.episodes?.firstOrNull()
-    var isBuffering by remember { mutableStateOf(true) }
 
     val streamUri = remember(mediaId, episodeNum, quality) {
         val downloadedFile = File(context.getExternalFilesDir(Environment.DIRECTORY_MOVIES), "${mediaId}_ep${episodeNum}.mp4")
@@ -646,11 +674,6 @@ fun PlayerScreen(mediaId: String, episodeNum: Int, quality: String = "720p") {
     val exoPlayer = remember {
         ExoPlayer.Builder(context).build().apply {
             setMediaItem(MediaItem.fromUri(streamUri))
-            addListener(object : Player.Listener {
-                override fun onPlaybackStateChanged(state: Int) {
-                    isBuffering = (state == Player.STATE_BUFFERING)
-                }
-            })
             prepare()
             playWhenReady = true
         }
@@ -676,13 +699,6 @@ fun PlayerScreen(mediaId: String, episodeNum: Int, quality: String = "720p") {
             },
             modifier = Modifier.fillMaxSize()
         )
-
-        if (isBuffering) {
-            CircularProgressIndicator(
-                modifier = Modifier.align(Alignment.Center),
-                color = AccentRed
-            )
-        }
     }
 }
 """,
