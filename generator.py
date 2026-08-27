@@ -1,6 +1,232 @@
 import os
 from PIL import Image
+import requests
+import json
+import time
 
+# ================== إعدادات جلب البيانات ==================
+OMDB_API_KEY = "98f8d59a"
+OMDB_BASE_URL = "http://www.omdbapi.com/"
+JIKAN_BASE_URL = "https://api.jikan.moe/v4"
+JIKAN_PAGES = 20   # 20 صفحة * ~25 = حوالي 500 أنمي
+
+# ضيف هون أي عدد بدك من IMDb IDs (فيلم/مسلسل بكل سطر)
+MOVIE_IMDB_IDS = [
+    "tt0111161", "tt0068646", "tt0468569", "tt0071562",
+    "tt0050083", "tt0108052", "tt0167260", "tt0110912",
+    "tt1375666", "tt0137523", "tt0109830", "tt0080684",
+]
+
+SERIES_IMDB_IDS = [
+    "tt0944947", "tt0903747", "tt0141842", "tt7366338",
+    "tt0185906", "tt2306299", "tt4574334", "tt0417299",
+]
+
+
+def fetch_omdb_item(imdb_id):
+    try:
+        params = {"i": imdb_id, "apikey": OMDB_API_KEY}
+        r = requests.get(OMDB_BASE_URL, params=params, timeout=10)
+        data = r.json()
+        return data if data.get("Response") == "True" else None
+    except Exception as e:
+        print(f"⚠️ خطأ بجلب {imdb_id}: {e}")
+        return None
+
+
+def fetch_jikan_anime(max_pages=JIKAN_PAGES):
+    all_results = []
+    for page in range(1, max_pages + 1):
+        try:
+            url = f"{JIKAN_BASE_URL}/top/anime?page={page}"
+            r = requests.get(url, timeout=10)
+            if r.status_code != 200:
+                break
+            data = r.json().get("data", [])
+            if not data:
+                break
+            all_results.extend(data)
+            time.sleep(0.4)
+        except Exception as e:
+            print(f"⚠️ خطأ بصفحة {page} من Jikan: {e}")
+            break
+    return all_results
+
+
+def build_movie_kt(item):
+    id_val = f"m_{item.get('imdbID', 'x').replace('tt', '')}"
+    title = item.get("Title", "بدون عنوان")
+    desc = item.get("Plot", "لا يوجد وصف متوفر.")
+    if desc == "N/A":
+        desc = "لا يوجد وصف متوفر."
+    poster = item.get("Poster", "")
+    if poster == "N/A":
+        poster = ""
+    try:
+        rating = float(item.get("imdbRating", "0")) if item.get("imdbRating") != "N/A" else 0.0
+    except ValueError:
+        rating = 0.0
+    year = (item.get("Year", "0000") or "0000")[:4]
+    runtime = item.get("Runtime", "2h 00m")
+
+    return (
+        '        MediaItem(\n'
+        f'            "{id_val}", {json.dumps(title, ensure_ascii=False)},\n'
+        f'            {json.dumps(desc, ensure_ascii=False)},\n'
+        f'            "{poster}",\n'
+        f'            "{poster}",\n'
+        f'            {rating}, "{year}", "movie", "أفلام رائجة 🎬", movieEp("{runtime}")\n'
+        '        ),'
+    )
+
+
+def build_series_kt(item):
+    id_val = f"s_{item.get('imdbID', 'x').replace('tt', '')}"
+    title = item.get("Title", "بدون عنوان")
+    desc = item.get("Plot", "لا يوجد وصف متوفر.")
+    if desc == "N/A":
+        desc = "لا يوجد وصف متوفر."
+    poster = item.get("Poster", "")
+    if poster == "N/A":
+        poster = ""
+    try:
+        rating = float(item.get("imdbRating", "0")) if item.get("imdbRating") != "N/A" else 0.0
+    except ValueError:
+        rating = 0.0
+    year = (item.get("Year", "0000") or "0000")[:4]
+    try:
+        total_seasons = int(item.get("totalSeasons", "1"))
+    except (ValueError, TypeError):
+        total_seasons = 1
+    ep_count = max(6, min(total_seasons * 8, 24))
+
+    return (
+        '        MediaItem(\n'
+        f'            "{id_val}", {json.dumps(title, ensure_ascii=False)},\n'
+        f'            {json.dumps(desc, ensure_ascii=False)},\n'
+        f'            "{poster}",\n'
+        f'            "{poster}",\n'
+        f'            {rating}, "{year}", "series", "مسلسلات مشاهدة الآن 📺", generateEpisodes({ep_count}, "50m")\n'
+        '        ),'
+    )
+
+
+def build_anime_kt(item):
+    id_val = f"a_{item.get('mal_id')}"
+    title = item.get("title", "بدون عنوان")
+    desc = item.get("synopsis") or "لا يوجد وصف متوفر."
+    images = item.get("images", {}).get("jpg", {})
+    poster = images.get("large_image_url") or images.get("image_url") or ""
+    rating = item.get("score") or 0.0
+    year = str(item.get("year") or "0000")
+    ep_count = item.get("episodes") or 12
+    try:
+        ep_count = min(int(ep_count), 26)
+    except (ValueError, TypeError):
+        ep_count = 12
+
+    return (
+        '        MediaItem(\n'
+        f'            "{id_val}", {json.dumps(title, ensure_ascii=False)},\n'
+        f'            {json.dumps(desc, ensure_ascii=False)},\n'
+        f'            "{poster}",\n'
+        f'            "{poster}",\n'
+        f'            {rating}, "{year}", "anime", "أنمي عالمي ⚡", generateEpisodes({ep_count})\n'
+        '        ),'
+    )
+
+
+def build_media_list_kt():
+    print("🔄 جاري جلب الأفلام من OMDb...")
+    movie_items = []
+    for imdb_id in MOVIE_IMDB_IDS:
+        data = fetch_omdb_item(imdb_id)
+        if data:
+            movie_items.append(build_movie_kt(data))
+        time.sleep(0.2)
+
+    print("🔄 جاري جلب المسلسلات من OMDb...")
+    series_items = []
+    for imdb_id in SERIES_IMDB_IDS:
+        data = fetch_omdb_item(imdb_id)
+        if data:
+            series_items.append(build_series_kt(data))
+        time.sleep(0.2)
+
+    print("🔄 جاري جلب الأنمي من Jikan (بدون مفتاح)...")
+    anime_raw = fetch_jikan_anime()
+    anime_items = [build_anime_kt(a) for a in anime_raw]
+
+    print(f"📊 تم جلب: {len(movie_items)} فيلم | {len(series_items)} مسلسل | {len(anime_items)} أنمي")
+
+    all_items = movie_items + series_items + anime_items
+    return "\n".join(all_items)
+
+
+# ================== قوالب MediaRepository.kt (نفس البنية الأصلية) ==================
+REPO_TEMPLATE_BEFORE = """package com.stream.hitv.data.repository
+
+import androidx.compose.runtime.mutableStateListOf
+import com.stream.hitv.data.model.*
+
+object MediaRepository {
+    private val server1 = "https://vjs.zencdn.net/v/oceans.mp4"
+    private val server2 = "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+    private val server3 = "https://storage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4"
+
+    fun buildServers(epNum: Int): List<StreamServer> = listOf(
+        StreamServer("🚀 سيرفر VIP المباشر", "1080p (FHD)", server1, "380 MB"),
+        StreamServer("⚡ سيرفر CDN سريع", "720p (HD)", server2, "190 MB"),
+        StreamServer("📱 سيرفر موفر للإنترنت", "480p (SD)", server3, "85 MB")
+    )
+
+    private fun generateEpisodes(count: Int, duration: String = "24m"): List<Episode> {
+        return (1..count).map { num ->
+            Episode(num, "الحلقة $num - كاملة ومترجمة", buildServers(num), duration)
+        }
+    }
+
+    private fun movieEp(duration: String = "2h 10m"): List<Episode> = listOf(
+        Episode(1, "مشاهدة الفيلم كاملاً بأعلى جودة", buildServers(1), duration)
+    )
+
+    // --- تم جلب البيانات تلقائياً بواسطة generator.py (OMDb + Jikan) ---
+    val mediaList = mutableStateListOf<MediaItem>(
+"""
+
+REPO_TEMPLATE_AFTER = """
+    )
+
+    val favoriteIds = mutableStateListOf<String>()
+    val downloads = mutableStateListOf<DownloadItem>()
+
+    fun toggleFavorite(id: String) {
+        if (favoriteIds.contains(id)) favoriteIds.remove(id) else favoriteIds.add(id)
+    }
+
+    fun isFavorite(id: String): Boolean = favoriteIds.contains(id)
+
+    fun addDownload(item: DownloadItem) {
+        if (downloads.none { it.mediaId == item.mediaId && it.episodeNumber == item.episodeNumber }) {
+            downloads.add(item)
+        }
+    }
+
+    fun removeDownload(mediaId: String, episodeNumber: Int) {
+        downloads.removeAll { it.mediaId == mediaId && it.episodeNumber == episodeNumber }
+    }
+
+    fun getMediaById(id: String): MediaItem? = mediaList.find { it.id == id }
+}
+"""
+
+
+def generate_media_repository_kt():
+    media_objects_string = build_media_list_kt()
+    return REPO_TEMPLATE_BEFORE + media_objects_string + REPO_TEMPLATE_AFTER
+
+
+# ================== باقي ملفات المشروع (كما هي بدون تغيير) ==================
 files = {
     "settings.gradle.kts": """pluginManagement {
     repositories {
@@ -161,114 +387,6 @@ data class DownloadItem(
     val quality: String,
     val size: String
 )
-""",
-
-    "app/src/main/java/com/stream/hitv/data/repository/MediaRepository.kt": """package com.stream.hitv.data.repository
-
-import androidx.compose.runtime.mutableStateListOf
-import com.stream.hitv.data.model.*
-
-object MediaRepository {
-    private val server1 = "https://vjs.zencdn.net/v/oceans.mp4"
-    private val server2 = "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
-    private val server3 = "https://storage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4"
-
-    fun buildServers(epNum: Int): List<StreamServer> = listOf(
-        StreamServer("🚀 سيرفر VIP المباشر", "1080p (FHD)", server1, "380 MB"),
-        StreamServer("⚡ سيرفر CDN سريع", "720p (HD)", server2, "190 MB"),
-        StreamServer("📱 سيرفر موفر للإنترنت", "480p (SD)", server3, "85 MB")
-    )
-
-    private fun generateEpisodes(count: Int, duration: String = "24m"): List<Episode> {
-        return (1..count).map { num ->
-            Episode(num, "الحلقة $num - كاملة ومترجمة", buildServers(num), duration)
-        }
-    }
-
-    private fun movieEp(duration: String = "2h 10m"): List<Episode> = listOf(
-        Episode(1, "مشاهدة الفيلم كاملاً بأعلى جودة", buildServers(1), duration)
-    )
-
-    val mediaList = mutableStateListOf<MediaItem>(
-        MediaItem(
-            "a1", "Solo Leveling: Arise",
-            "في عالم مليء بالبوابات والوحوش القاتلة، يستيقظ أضعف صياد في العالم بقدرة غير محدودة لتغيير مصير البشرية.",
-            "https://image.tmdb.org/t/p/w500/geCRueV3ElhRTr0xtJuPxJ8BGd1.jpg",
-            "https://image.tmdb.org/t/p/original/4MCKNAc6AbWjEsM2cr7hRiQgajU.jpg",
-            9.9, "2024", "anime", "أنمي خارق 🔥", generateEpisodes(12)
-        ),
-        MediaItem(
-            "a2", "Attack on Titan: Final",
-            "المعركة الملحمية الأخيرة بين البشر والعمالقة لتحديد مصير العالم وكسر قيود الأسوار إلى الأبد.",
-            "https://image.tmdb.org/t/p/w500/hTP1DtLGFamjfu8WqjnuQdP1n4i.jpg",
-            "https://image.tmdb.org/t/p/original/m9mE4D4Kx1Vl5b9gZc8W2Z7lVb9.jpg",
-            9.9, "2023", "anime", "أنمي حماسي ⚔️", generateEpisodes(10)
-        ),
-        MediaItem(
-            "a3", "Jujutsu Kaisen S2",
-            "صراع حابس للأنفاس في شوارع شيبويا بين سحرة الجوجوتسو وأقوى اللعنات القديمة في التاريخ.",
-            "https://image.tmdb.org/t/p/w500/hFWP5w93uQ146u2YlP1z3rF1RzN.jpg",
-            "https://image.tmdb.org/t/p/original/j3ZJ9agA5Z7r9eE0mE4wK6r7N3w.jpg",
-            9.8, "2023", "anime", "أنمي قوى خارقة ⚡", generateEpisodes(12)
-        ),
-        MediaItem(
-            "a4", "Demon Slayer: Hashira",
-            "تدريب الهاشيرا الصارم استعداداً للمعركة الكبرى داخل قلعة اللانهاية ضد موزان وأقمار الشياطين.",
-            "https://image.tmdb.org/t/p/w500/xUfRZu2mi8jH6SzQEJGP6tjBuYj.jpg",
-            "https://image.tmdb.org/t/p/original/nTPKWc0iE3U5eU4yJpE3K7kY2mK.jpg",
-            9.8, "2024", "anime", "أنمي شياطين 🗡️", generateEpisodes(8)
-        ),
-        MediaItem(
-            "s1", "The Seoul Mystery",
-            "دراما كورية مشوقة تدور حول محقق جنائي بارع يواجه شبكة أسرار غامضة تهدد العاصمة بأكملها.",
-            "https://image.tmdb.org/t/p/w500/1XddXPXQIbZcHFiq70Q54nN3Z66.jpg",
-            "https://image.tmdb.org/t/p/original/56v2KjBlU4XaOv9rVYEQypROD7P.jpg",
-            9.6, "2023", "series", "دراما كورية 🇰🇷", generateEpisodes(16, "60m")
-        ),
-        MediaItem(
-            "s2", "House of the Dragon S2",
-            "الحرب الأهلية الملحمية رقصة التنانين تشتعل بين عائلة تارغاريان للسيطرة على العرش الحديدي.",
-            "https://image.tmdb.org/t/p/w500/7QMsOTMUswlwxJP0rTTZfmz2tX2.jpg",
-            "https://image.tmdb.org/t/p/original/etj5xUAoON507G9Sc0e3T2y92g0.jpg",
-            9.5, "2024", "series", "صراع عروش 🐉", generateEpisodes(8, "65m")
-        ),
-        MediaItem(
-            "m1", "Dune: Part Two",
-            "بول أتريدس يتحد مع تشاني والشعب الصحراوي في رحلة انتقام ملحمية ضد المتآمرين الذين دمروا عائلته.",
-            "https://image.tmdb.org/t/p/w500/czembW0Rk1Ke7lCJGahbOhdCuhV.jpg",
-            "https://image.tmdb.org/t/p/original/xOMo8BRK7PfcJv9JCnx7s5hj0x2.jpg",
-            9.8, "2024", "movie", "خيال علمي ملحمي 🪐", movieEp("2h 46m")
-        ),
-        MediaItem(
-            "m2", "Oppenheimer",
-            "القصة المشوقة للفيزيائي روبرت أوبنهايمر ودوره في مشروع مانهاتن وتطوير القنبلة الذرية الأولى.",
-            "https://image.tmdb.org/t/p/w500/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg",
-            "https://image.tmdb.org/t/p/original/fm6KqXpk3M2HVveHwCrBSSBaO0V.jpg",
-            9.7, "2023", "movie", "دراما وتاريخ 💣", movieEp("3h 00m")
-        )
-    )
-
-    val favoriteIds = mutableStateListOf<String>("a1", "m1")
-    val downloads = mutableStateListOf<DownloadItem>()
-
-    fun toggleFavorite(id: String) {
-        if (favoriteIds.contains(id)) favoriteIds.remove(id) else favoriteIds.add(id)
-    }
-
-    fun isFavorite(id: String): Boolean = favoriteIds.contains(id)
-
-    fun addDownload(item: DownloadItem) {
-        if (downloads.none { it.mediaId == item.mediaId && it.episodeNumber == item.episodeNumber }) {
-            downloads.add(item)
-        }
-    }
-
-    fun removeDownload(mediaId: String, episodeNumber: Int) {
-        downloads.removeAll { it.mediaId == mediaId && it.episodeNumber == episodeNumber }
-    }
-
-    fun getMediaById(id: String): MediaItem? = mediaList.find { it.id == id }
-}
 """,
 
     "app/src/main/java/com/stream/hitv/ui/theme/Theme.kt": """package com.stream.hitv.ui.theme
@@ -862,7 +980,12 @@ class MainActivity : ComponentActivity() {
 """
 }
 
+# ================== توليد MediaRepository.kt ديناميكياً وإضافته لقاموس الملفات ==================
+print("🚀 بدء عملية توليد المشروع...")
+files["app/src/main/java/com/stream/hitv/data/repository/MediaRepository.kt"] = generate_media_repository_kt()
+
 # كتابة ملفات المشروع
+print("💾 جاري كتابة ملفات المشروع...")
 for path, content in files.items():
     parent = os.path.dirname(path)
     if parent:
@@ -877,13 +1000,12 @@ if png_candidates:
     icon_source = png_candidates[0]
     print(f"🎨 تم العثور على صورتك المرفوعة: {icon_source}")
     logo = Image.open(icon_source).convert("RGBA")
-    
-    # دمج الصورة فوق خلفية كحلية متناسقة 512x512
+
     bg = Image.new("RGBA", (512, 512), (13, 34, 58, 255))
     logo.thumbnail((440, 440), Image.Resampling.LANCZOS)
     offset = ((512 - logo.width) // 2, (512 - logo.height) // 2)
     bg.paste(logo, offset, mask=logo)
-    
+
     densities = {
         "app/src/main/res/mipmap-mdpi/ic_launcher.png": 48,
         "app/src/main/res/mipmap-hdpi/ic_launcher.png": 72,
