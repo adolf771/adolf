@@ -13,9 +13,9 @@ jobs:
     - name: Checkout Source Code
       uses: actions/checkout@v4
 
-    - name: Unpack Project ZIP
+    - name: Unpack Any ZIP Found
       run: |
-        unzip -o hitv-stream-app.zip
+        unzip -o *.zip
         ls -la
 
     - name: Set up JDK 17
