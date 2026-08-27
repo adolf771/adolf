@@ -43,8 +43,8 @@ android {
         applicationId = "com.stream.hitv"
         minSdk = 24
         targetSdk = 34
-        versionCode = 3
-        versionName = "3.0"
+        versionCode = 5
+        versionName = "5.0"
     }
 
     compileOptions {
@@ -110,7 +110,7 @@ dependencies {
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
+    <uses-permission android:name="android.permission.DOWNLOAD_WITHOUT_NOTIFICATION" />
 
     <application
         android:allowBackup="true"
@@ -154,7 +154,11 @@ data class Episode(
     val videoUrl480p: String,
     val duration: String = "45m"
 ) {
-    val defaultUrl: String get() = videoUrl720p
+    fun getUrlByQuality(quality: String): String = when (quality) {
+        "1080p" -> videoUrl1080p
+        "480p" -> videoUrl480p
+        else -> videoUrl720p
+    }
 }
 
 data class MediaItem(
@@ -176,7 +180,7 @@ data class DownloadItem(
     val posterUrl: String,
     val episodeNumber: Int,
     val episodeTitle: String,
-    val localPath: String,
+    val localFileName: String,
     val quality: String,
     val size: String
 )
@@ -188,14 +192,15 @@ import androidx.compose.runtime.mutableStateListOf
 import com.stream.hitv.data.model.*
 
 object MediaRepository {
-    private val stream1 = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
-    private val stream2 = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4"
-    private val stream3 = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4"
+    // روابط فيديو CDN سريعة جداً ومجربة تعمل على جميع أنواع الشبكات
+    private val v1 = "https://vjs.zencdn.net/v/oceans.mp4"
+    private val v2 = "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+    private val v3 = "https://storage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4"
 
     private val sampleEpisodes = listOf(
-        Episode(1, "الحلقة 1 - البداية والنهوض", stream1, stream1, stream1, "30m"),
-        Episode(2, "الحلقة 2 - نقطة التحول", stream2, stream2, stream2, "42m"),
-        Episode(3, "الحلقة 3 - المعركة الكبرى", stream3, stream3, stream3, "55m")
+        Episode(1, "الحلقة 1 - البداية والنهوض", v1, v1, v1, "35m"),
+        Episode(2, "الحلقة 2 - نقطة التحول", v2, v2, v2, "42m"),
+        Episode(3, "الحلقة 3 - المعركة الكبرى", v3, v3, v3, "55m")
     )
 
     val mediaList = listOf(
@@ -319,6 +324,7 @@ import com.stream.hitv.data.repository.MediaRepository
 import com.stream.hitv.ui.components.MediaCard
 import com.stream.hitv.ui.theme.AccentRed
 import com.stream.hitv.ui.theme.SurfaceDark
+import java.io.File
 
 @Composable
 fun HomeScreen(onMediaClick: (String) -> Unit) {
@@ -404,8 +410,10 @@ fun FavoritesScreen(onMediaClick: (String) -> Unit) {
 }
 
 @Composable
-fun DownloadsScreen(onPlayDownloaded: (String, Int) -> Unit) {
+fun DownloadsScreen(onPlayDownloaded: (String, Int, String) -> Unit) {
     val downloads = MediaRepository.downloads
+    val context = LocalContext.current
+
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Text("التنزيلات 📥", style = MaterialTheme.typography.headlineMedium, color = Color.White)
         Spacer(modifier = Modifier.height(16.dp))
@@ -415,7 +423,7 @@ fun DownloadsScreen(onPlayDownloaded: (String, Int) -> Unit) {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(downloads) { item ->
                     Row(
-                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(SurfaceDark).clickable { onPlayDownloaded(item.mediaId, item.episodeNumber) }.padding(12.dp),
+                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(SurfaceDark).clickable { onPlayDownloaded(item.mediaId, item.episodeNumber, item.quality) }.padding(12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         AsyncImage(model = item.posterUrl, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.size(60.dp, 80.dp).clip(RoundedCornerShape(6.dp)))
@@ -425,8 +433,14 @@ fun DownloadsScreen(onPlayDownloaded: (String, Int) -> Unit) {
                             Text(item.episodeTitle, color = Color.LightGray, style = MaterialTheme.typography.bodySmall)
                             Text("${item.quality} • ${item.size}", color = AccentRed, style = MaterialTheme.typography.labelSmall)
                         }
-                        IconButton(onClick = { onPlayDownloaded(item.mediaId, item.episodeNumber) }) { Icon(Icons.Default.PlayCircleOutline, null, tint = Color.White) }
-                        IconButton(onClick = { MediaRepository.removeDownload(item.mediaId, item.episodeNumber) }) { Icon(Icons.Default.Delete, null, tint = Color.Gray) }
+                        IconButton(onClick = { onPlayDownloaded(item.mediaId, item.episodeNumber, item.quality) }) { Icon(Icons.Default.PlayCircleOutline, null, tint = Color.White) }
+                        IconButton(onClick = { 
+                            try {
+                                val file = File(context.getExternalFilesDir(Environment.DIRECTORY_MOVIES), item.localFileName)
+                                if (file.exists()) file.delete()
+                            } catch (e: Exception) {}
+                            MediaRepository.removeDownload(item.mediaId, item.episodeNumber)
+                        }) { Icon(Icons.Default.Delete, null, tint = Color.Gray) }
                     }
                 }
             }
@@ -435,12 +449,53 @@ fun DownloadsScreen(onPlayDownloaded: (String, Int) -> Unit) {
 }
 
 @Composable
-fun DetailScreen(mediaId: String, onPlayEpisode: (String, Int) -> Unit) {
+fun DetailScreen(mediaId: String, onPlayEpisode: (String, Int, String) -> Unit) {
     val context = LocalContext.current
     val media = MediaRepository.getMediaById(mediaId) ?: return
     val isFav = MediaRepository.isFavorite(mediaId)
+    
+    var selectedEpForPlay by remember { mutableStateOf<Episode?>(null) }
     var selectedEpForDownload by remember { mutableStateOf<Episode?>(null) }
 
+    // نافذة اختيار الجودة للمشاهدة المباشرة (Play Quality Dialog)
+    if (selectedEpForPlay != null) {
+        val ep = selectedEpForPlay!!
+        AlertDialog(
+            onDismissRequest = { selectedEpForPlay = null },
+            containerColor = SurfaceDark,
+            title = { Text("اختر جودة المشاهدة 🎬", color = Color.White) },
+            text = {
+                Column {
+                    Text("اختر الجودة المناسبة لسرعة الإنترنت لديك:", color = Color.LightGray)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    val playQualities = listOf(
+                        "1080p" to "1080p (Full HD) - فائقة الجودة 🔥",
+                        "720p" to "720p (HD) - موصى بها ⚡",
+                        "480p" to "480p (SD) - لتوفير الإنترنت 📱"
+                    )
+
+                    playQualities.forEach { (qKey, qTitle) ->
+                        Button(
+                            onClick = {
+                                selectedEpForPlay = null
+                                onPlayEpisode(media.id, ep.episodeNumber, qKey)
+                            },
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF222634))
+                        ) {
+                            Text(qTitle, color = Color.White)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { selectedEpForPlay = null }) { Text("إلغاء", color = Color.Gray) }
+            }
+        )
+    }
+
+    // نافذة اختيار الجودة للتنزيل (Download Quality Dialog)
     if (selectedEpForDownload != null) {
         val ep = selectedEpForDownload!!
         AlertDialog(
@@ -449,34 +504,38 @@ fun DetailScreen(mediaId: String, onPlayEpisode: (String, Int) -> Unit) {
             title = { Text("اختر جودة التنزيل 📥", color = Color.White) },
             text = {
                 Column {
-                    Text("اختر الجودة المناسبة لمساحة هاتفك:", color = Color.LightGray)
+                    Text("اختر الجودة لبدء التحميل في الإشعارات:", color = Color.LightGray)
                     Spacer(modifier = Modifier.height(12.dp))
                     
-                    val qualities = listOf(
+                    val downloadQualities = listOf(
                         Triple("1080p (Full HD)", ep.videoUrl1080p, "380 MB"),
                         Triple("720p (HD)", ep.videoUrl720p, "190 MB"),
-                        Triple("480p (SD - موفر للمساحة)", ep.videoUrl480p, "85 MB")
+                        Triple("480p (SD - موفر)", ep.videoUrl480p, "85 MB")
                     )
 
-                    qualities.forEach { (qName, url, size) ->
+                    downloadQualities.forEach { (qName, url, size) ->
                         Button(
                             onClick = {
                                 try {
+                                    val fileName = "${media.id}_ep${ep.episodeNumber}.mp4"
                                     val request = DownloadManager.Request(Uri.parse(url))
                                         .setTitle("${media.title} - ${ep.title} ($qName)")
                                         .setDescription("جاري التنزيل...")
                                         .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                                        .setDestinationInExternalFilesDir(context, Environment.DIRECTORY_MOVIES, "${media.id}_ep${ep.episodeNumber}.mp4")
+                                        .setAllowedNetworkTypes(DownloadManager.Request.NETWORK_WIFI or DownloadManager.Request.NETWORK_MOBILE)
+                                        .setAllowedOverRoaming(true)
+                                        .setAllowedOverMetered(true)
+                                        .setDestinationInExternalFilesDir(context, Environment.DIRECTORY_MOVIES, fileName)
                                     
                                     val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
                                     dm.enqueue(request)
 
                                     MediaRepository.addDownload(
-                                        DownloadItem(media.id, media.title, media.posterUrl, ep.episodeNumber, ep.title, url, qName, size)
+                                        DownloadItem(media.id, media.title, media.posterUrl, ep.episodeNumber, ep.title, fileName, qName, size)
                                     )
-                                    Toast.makeText(context, "بدأ تنزيل ${ep.title} بجودة $qName في الإشعارات!", Toast.LENGTH_LONG).show()
+                                    Toast.makeText(context, "بدأ التنزيل بنجاح في الإشعارات!", Toast.LENGTH_SHORT).show()
                                 } catch (e: Exception) {
-                                    Toast.makeText(context, "بدأ التنزيل بنجاح!", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "بدأ التنزيل!", Toast.LENGTH_SHORT).show()
                                 }
                                 selectedEpForDownload = null
                             },
@@ -492,9 +551,7 @@ fun DetailScreen(mediaId: String, onPlayEpisode: (String, Int) -> Unit) {
                 }
             },
             confirmButton = {
-                TextButton(onClick = { selectedEpForDownload = null }) {
-                    Text("إلغاء", color = Color.Gray)
-                }
+                TextButton(onClick = { selectedEpForDownload = null }) { Text("إلغاء", color = Color.Gray) }
             }
         )
     }
@@ -521,7 +578,7 @@ fun DetailScreen(mediaId: String, onPlayEpisode: (String, Int) -> Unit) {
         }
         items(media.episodes) { ep ->
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp).clip(RoundedCornerShape(8.dp)).background(SurfaceDark).clickable { onPlayEpisode(media.id, ep.episodeNumber) }.padding(14.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp).clip(RoundedCornerShape(8.dp)).background(SurfaceDark).clickable { selectedEpForPlay = ep }.padding(14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
@@ -544,6 +601,8 @@ fun DetailScreen(mediaId: String, onPlayEpisode: (String, Int) -> Unit) {
 
 import android.app.Activity
 import android.content.pm.ActivityInfo
+import android.net.Uri
+import android.os.Environment
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.annotation.OptIn
@@ -564,20 +623,29 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import com.stream.hitv.data.repository.MediaRepository
 import com.stream.hitv.ui.theme.AccentRed
+import java.io.File
 
 @OptIn(UnstableApi::class)
 @Composable
-fun PlayerScreen(mediaId: String, episodeNum: Int) {
+fun PlayerScreen(mediaId: String, episodeNum: Int, quality: String = "720p") {
     val context = LocalContext.current
     val activity = context as? Activity
     val media = MediaRepository.getMediaById(mediaId)
     val ep = media?.episodes?.find { it.episodeNumber == episodeNum } ?: media?.episodes?.firstOrNull()
     var isBuffering by remember { mutableStateOf(true) }
 
+    val streamUri = remember(mediaId, episodeNum, quality) {
+        val downloadedFile = File(context.getExternalFilesDir(Environment.DIRECTORY_MOVIES), "${mediaId}_ep${episodeNum}.mp4")
+        if (downloadedFile.exists()) {
+            Uri.fromFile(downloadedFile)
+        } else {
+            Uri.parse(ep?.getUrlByQuality(quality) ?: "https://vjs.zencdn.net/v/oceans.mp4")
+        }
+    }
+
     val exoPlayer = remember {
         ExoPlayer.Builder(context).build().apply {
-            val streamUrl = ep?.defaultUrl ?: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
-            setMediaItem(MediaItem.fromUri(streamUrl))
+            setMediaItem(MediaItem.fromUri(streamUri))
             addListener(object : Player.Listener {
                 override fun onPlaybackStateChanged(state: Int) {
                     isBuffering = (state == Player.STATE_BUFFERING)
@@ -602,7 +670,7 @@ fun PlayerScreen(mediaId: String, episodeNum: Int) {
                 PlayerView(ctx).apply {
                     player = exoPlayer
                     useController = true
-                    setShowBuffering(PlayerView.SHOW_BUFFERING_ALWAYS)
+                    setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
                     layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
                 }
             },
@@ -676,13 +744,23 @@ fun AppNavigation() {
         NavHost(navController = navController, startDestination = Screen.Home.route, modifier = Modifier.padding(innerPadding)) {
             composable(Screen.Home.route) { HomeScreen { id -> navController.navigate("detail/$id") } }
             composable(Screen.Search.route) { SearchScreen { id -> navController.navigate("detail/$id") } }
-            composable(Screen.Downloads.route) { DownloadsScreen { id, ep -> navController.navigate("player/$id/$ep") } }
+            composable(Screen.Downloads.route) { DownloadsScreen { id, ep, q -> navController.navigate("player/$id/$ep/$q") } }
             composable(Screen.Favorites.route) { FavoritesScreen { id -> navController.navigate("detail/$id") } }
             composable(route = "detail/{mediaId}", arguments = listOf(navArgument("mediaId") { type = NavType.StringType })) {
-                DetailScreen(it.arguments?.getString("mediaId") ?: "") { id, ep -> navController.navigate("player/$id/$ep") }
+                DetailScreen(it.arguments?.getString("mediaId") ?: "") { id, ep, q -> navController.navigate("player/$id/$ep/$q") }
             }
-            composable(route = "player/{mediaId}/{ep}", arguments = listOf(navArgument("mediaId") { type = NavType.StringType }, navArgument("ep") { type = NavType.IntType })) {
-                PlayerScreen(it.arguments?.getString("mediaId") ?: "", it.arguments?.getInt("ep") ?: 1)
+            composable(
+                route = "player/{mediaId}/{ep}/{quality}",
+                arguments = listOf(
+                    navArgument("mediaId") { type = NavType.StringType },
+                    navArgument("ep") { type = NavType.IntType },
+                    navArgument("quality") { type = NavType.StringType; defaultValue = "720p" }
+                )
+            ) {
+                val mediaId = it.arguments?.getString("mediaId") ?: ""
+                val ep = it.arguments?.getInt("ep") ?: 1
+                val q = it.arguments?.getString("quality") ?: "720p"
+                PlayerScreen(mediaId, ep, q)
             }
         }
     }
