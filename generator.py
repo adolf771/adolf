@@ -1,6 +1,4 @@
 import os
-import zlib
-import struct
 
 files = {
     "settings.gradle.kts": """pluginManagement {
@@ -45,8 +43,8 @@ android {
         applicationId = "com.stream.hitv"
         minSdk = 24
         targetSdk = 34
-        versionCode = 11
-        versionName = "11.0"
+        versionCode = 14
+        versionName = "14.0"
     }
 
     compileOptions {
@@ -79,45 +77,7 @@ dependencies {
     implementation("androidx.media3:media3-ui:1.3.1")
     implementation("androidx.media3:media3-exoplayer-hls:1.3.1")
     implementation("androidx.media3:media3-common:1.3.1")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
 }
-""",
-
-    "app/src/main/res/drawable/ic_launcher_background.xml": """<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp"
-    android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
-    <path android:fillColor="#0D223A" android:pathData="M0,0h108v108h-108z"/>
-    <path android:fillColor="#153658" android:pathData="M0,50 L108,0 L108,108 L0,108 Z"/>
-</vector>
-""",
-
-    "app/src/main/res/drawable/ic_launcher_foreground.xml": """<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp"
-    android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
-    <path android:fillColor="#1F4E79" android:pathData="M30,95 C30,68 78,68 78,95 Z"/>
-    <path android:fillColor="#2A6496" android:pathData="M52,68 L56,68 L54,61 Z"/>
-    <path android:fillColor="#FFFFFF" android:pathData="M36,20 L64,20 C76,20 84,28 84,42 C84,56 76,64 64,64 L48,64 L48,88 L36,88 Z"/>
-    <path android:fillColor="#0D223A" android:pathData="M48,32 L62,32 C67,32 70,36 70,42 C70,48 67,52 62,52 L48,52 Z"/>
-    <path android:fillColor="#E50914" android:pathData="M61,36 L63,41 L68,41 L64,44 L66,49 L61,46 L57,49 L58,44 L55,41 L60,41 Z"/>
-</vector>
-""",
-
-    "app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml": """<?xml version="1.0" encoding="utf-8"?>
-<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-    <background android:drawable="@drawable/ic_launcher_background"/>
-    <foreground android:drawable="@drawable/ic_launcher_foreground"/>
-</adaptive-icon>
-""",
-
-    "app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml": """<?xml version="1.0" encoding="utf-8"?>
-<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-    <background android:drawable="@drawable/ic_launcher_background"/>
-    <foreground android:drawable="@drawable/ic_launcher_foreground"/>
-</adaptive-icon>
 """,
 
     "app/src/main/AndroidManifest.xml": """<?xml version="1.0" encoding="utf-8"?>
@@ -184,7 +144,7 @@ data class MediaItem(
     val bannerUrl: String,
     val rating: Double,
     val releaseYear: String,
-    val type: String, // "movie", "series", "anime"
+    val type: String,
     val categoryName: String,
     val episodes: List<Episode>
 )
@@ -202,19 +162,12 @@ data class DownloadItem(
 )
 """,
 
-    # محرك جلب الأفلام التلقائي من TMDB مع دعم السيرفرات المتعددة
     "app/src/main/java/com/stream/hitv/data/repository/MediaRepository.kt": """package com.stream.hitv.data.repository
 
 import androidx.compose.runtime.mutableStateListOf
 import com.stream.hitv.data.model.*
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import org.json.JSONObject
-import java.net.HttpURLConnection
-import java.net.URL
 
 object MediaRepository {
-    // سيرفرات البث المتعددة عالية السرعة
     private val serverVIP = "https://vjs.zencdn.net/v/oceans.mp4"
     private val serverFast = "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
     private val serverEco = "https://storage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4"
@@ -225,96 +178,77 @@ object MediaRepository {
         StreamServer("📱 سيرفر موفر للإنترنت", "480p (SD)", serverEco, "85 MB")
     )
 
-    private val defaultEpisodes = listOf(
-        Episode(1, "الحلقة 1 - البداية والانطلاق", buildServers(1), "35m"),
-        Episode(2, "الحلقة 2 - تصاعد الأحداث", buildServers(2), "42m"),
-        Episode(3, "الحلقة 3 - المواجهة الحاسمة", buildServers(3), "55m")
-    )
+    private fun generateEpisodes(count: Int, duration: String = "24m"): List<Episode> {
+        return (1..count).map { num ->
+            Episode(num, "الحلقة $num - كاملة ومترجمة", buildServers(num), duration)
+        }
+    }
 
-    private val movieEpisodes = listOf(
-        Episode(1, "مشاهدة الفيلم كاملاً بدقة عالية", buildServers(1), "1h 55m")
+    private fun movieEp(duration: String = "2h 10m"): List<Episode> = listOf(
+        Episode(1, "مشاهدة الفيلم كاملاً بأعلى جودة", buildServers(1), duration)
     )
 
     val mediaList = mutableStateListOf<MediaItem>(
-        MediaItem("101", "Solo Leveling: Arise", "في عالم البوابات والوحوش الغامضة، يستيقظ أضعف صياد بقوة غير محدودة تقلب موازين العالم.", "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=500", "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=1000", 9.9, "2024", "anime", "أنمي خارق", defaultEpisodes),
-        MediaItem("102", "Attack on Titan: The Final", "معركة البشرية الأخيرة دفاعاً عن الحرية ضد جدران العمالقة الملحمية.", "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?w=500", "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1000", 9.8, "2023", "anime", "أنمي حماسي", defaultEpisodes),
-        MediaItem("103", "The Seoul Detective", "دراما كورية مشوقة تدور حول محقق يواجه أسراراً مدفونة في قلب العاصمة سيول.", "https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=500", "https://images.unsplash.com/photo-1514565131-fce0801e5785?w=1000", 9.6, "2023", "series", "دراما كورية", defaultEpisodes),
-        MediaItem("104", "Interstellar: Beyond", "رحلة فضائية ملحمية عبر ثقب دودي بحثاً عن كوكب جديد لإنقاذ البشرية.", "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=500", "https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?w=1000", 9.7, "2024", "movie", "أفلام خيال علمي", movieEpisodes),
-        MediaItem("105", "Cyber City 2099", "مغامرة مستقبلية حماسية في شوارع النيون دفاعاً عن النظام التكنولوجي.", "https://images.unsplash.com/photo-1563089145-599997674d42?w=500", "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=1000", 9.3, "2024", "anime", "أنمي سايبربانك", defaultEpisodes),
-        MediaItem("106", "The Kingdom Shadows", "صراع ملحمي بين العائلات النبيلة في العصور القديمة على السيادة والعرش.", "https://images.unsplash.com/photo-1533488765986-dfa2a9939acd?w=500", "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1000", 9.4, "2024", "series", "مسلسلات تاريخية", defaultEpisodes)
+        MediaItem(
+            "a1", "Solo Leveling: Arise",
+            "في عالم مليء بالبوابات والوحوش القاتلة، يستيقظ أضعف صياد في العالم بقدرة غير محدودة لتغيير مصير البشرية.",
+            "https://image.tmdb.org/t/p/w500/geCRueV3ElhRTr0xtJuPxJ8BGd1.jpg",
+            "https://image.tmdb.org/t/p/original/4MCKNAc6AbWjEsM2cr7hRiQgajU.jpg",
+            9.9, "2024", "anime", "أنمي خارق 🔥", generateEpisodes(12)
+        ),
+        MediaItem(
+            "a2", "Attack on Titan: Final",
+            "المعركة الملحمية الأخيرة بين البشر والعمالقة لتحديد مصير العالم وكسر قيود الأسوار إلى الأبد.",
+            "https://image.tmdb.org/t/p/w500/hTP1DtLGFamjfu8WqjnuQdP1n4i.jpg",
+            "https://image.tmdb.org/t/p/original/m9mE4D4Kx1Vl5b9gZc8W2Z7lVb9.jpg",
+            9.9, "2023", "anime", "أنمي حماسي ⚔️", generateEpisodes(10)
+        ),
+        MediaItem(
+            "a3", "Jujutsu Kaisen S2",
+            "صراع حابس للأنفاس في شوارع شيبويا بين سحرة الجوجوتسو وأقوى اللعنات القديمة في التاريخ.",
+            "https://image.tmdb.org/t/p/w500/hFWP5w93uQ146u2YlP1z3rF1RzN.jpg",
+            "https://image.tmdb.org/t/p/original/j3ZJ9agA5Z7r9eE0mE4wK6r7N3w.jpg",
+            9.8, "2023", "anime", "أنمي قوى خارقة ⚡", generateEpisodes(12)
+        ),
+        MediaItem(
+            "a4", "Demon Slayer: Hashira",
+            "تدريب الهاشيرا الصارم استعداداً للمعركة الكبرى داخل قلعة اللانهاية ضد موزان وأقمار الشياطين.",
+            "https://image.tmdb.org/t/p/w500/xUfRZu2mi8jH6SzQEJGP6tjBuYj.jpg",
+            "https://image.tmdb.org/t/p/original/nTPKWc0iE3U5eU4yJpE3K7kY2mK.jpg",
+            9.8, "2024", "anime", "أنمي شياطين 🗡️", generateEpisodes(8)
+        ),
+        MediaItem(
+            "s1", "The Seoul Mystery",
+            "دراما كورية مشوقة تدور حول محقق جنائي بارع يواجه شبكة أسرار غامضة تهدد العاصمة بأكملها.",
+            "https://image.tmdb.org/t/p/w500/1XddXPXQIbZcHFiq70Q54nN3Z66.jpg",
+            "https://image.tmdb.org/t/p/original/56v2KjBlU4XaOv9rVYEQypROD7P.jpg",
+            9.6, "2023", "series", "دراما كورية 🇰🇷", generateEpisodes(16, "60m")
+        ),
+        MediaItem(
+            "s2", "House of the Dragon S2",
+            "الحرب الأهلية الملحمية رقصة التنانين تشتعل بين عائلة تارغاريان للسيطرة على العرش الحديدي.",
+            "https://image.tmdb.org/t/p/w500/7QMsOTMUswlwxJP0rTTZfmz2tX2.jpg",
+            "https://image.tmdb.org/t/p/original/etj5xUAoON507G9Sc0e3T2y92g0.jpg",
+            9.5, "2024", "series", "صراع عروش 🐉", generateEpisodes(8, "65m")
+        ),
+        MediaItem(
+            "m1", "Dune: Part Two",
+            "بول أتريدس يتحد مع تشاني والشعب الصحراوي في رحلة انتقام ملحمية ضد المتآمرين الذين دمروا عائلته.",
+            "https://image.tmdb.org/t/p/w500/czembW0Rk1Ke7lCJGahbOhdCuhV.jpg",
+            "https://image.tmdb.org/t/p/original/xOMo8BRK7PfcJv9JCnx7s5hj0x2.jpg",
+            9.8, "2024", "movie", "خيال علمي ملحمي 🪐", movieEp("2h 46m")
+        ),
+        MediaItem(
+            "m2", "Oppenheimer",
+            "القصة المشوقة للفيزيائي روبرت أوبنهايمر ودوره في مشروع مانهاتن وتطوير القنبلة الذرية الأولى.",
+            "https://image.tmdb.org/t/p/w500/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg",
+            "https://image.tmdb.org/t/p/original/fm6KqXpk3M2HVveHwCrBSSBaO0V.jpg",
+            9.7, "2023", "movie", "دراما وتاريخ 💣", movieEp("3h 00m")
+        )
     )
 
-    val favoriteIds = mutableStateListOf<String>("101", "104")
+    val favoriteIds = mutableStateListOf<String>("a1", "m1")
     val downloads = mutableStateListOf<DownloadItem>()
-
-    // جلب أحدث الأفلام والمسلسلات تلقائياً عبر TMDB API في الخلفية
-    suspend fun fetchTrendingFromTMDB() {
-        withContext(Dispatchers.IO) {
-            try {
-                val apiKey = "1bfb17bf4854aa7a62e49c738d927105" // TMDB Demo Public Key
-                val urlString = "https://api.themoviedb.org/3/trending/all/week?api_key=$apiKey&language=ar-SA"
-                val connection = URL(urlString).openConnection() as HttpURLConnection
-                connection.requestMethod = "GET"
-                connection.connectTimeout = 8000
-                connection.readTimeout = 8000
-
-                if (connection.responseCode == 200) {
-                    val response = connection.inputStream.bufferedReader().use { it.readText() }
-                    val json = JSONObject(response)
-                    val results = json.optJSONArray("results") ?: return@withContext
-
-                    val fetchedItems = mutableListOf<MediaItem>()
-                    for (i in 0 until minOf(results.length(), 15)) {
-                        val obj = results.getJSONObject(i)
-                        val id = obj.optString("id", i.toString())
-                        val title = obj.optString("title", obj.optString("name", "عمل جديد"))
-                        val overview = obj.optString("overview", "شاهد هذا العمل الرائع بأعلى جودة.")
-                        val posterPath = obj.optString("poster_path", "")
-                        val backdropPath = obj.optString("backdrop_path", "")
-                        val rating = obj.optDouble("vote_average", 8.5)
-                        val releaseDate = obj.optString("release_date", obj.optString("first_air_date", "2024"))
-                        val mediaType = obj.optString("media_type", "movie")
-
-                        val poster = if (posterPath.isNotEmpty()) "https://image.tmdb.org/t/p/w500$posterPath" else "https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=500"
-                        val banner = if (backdropPath.isNotEmpty()) "https://image.tmdb.org/t/p/original$backdropPath" else poster
-
-                        val type = when {
-                            mediaType == "tv" -> "series"
-                            else -> "movie"
-                        }
-
-                        val eps = if (type == "movie") movieEpisodes else defaultEpisodes
-                        fetchedItems.add(
-                            MediaItem(
-                                id = "tmdb_$id",
-                                title = title,
-                                description = if (overview.isNotBlank()) overview else "مشاهدة مباشرة بأفضل جودة وسرعة.",
-                                posterUrl = poster,
-                                bannerUrl = banner,
-                                rating = Math.round(rating * 10.0) / 10.0,
-                                releaseYear = if (releaseDate.length >= 4) releaseDate.substring(0, 4) else "2024",
-                                type = type,
-                                categoryName = if (type == "movie") "أفلام شائعة 🔥" else "مسلسلات رائجة 📺",
-                                episodes = eps
-                            )
-                        )
-                    }
-
-                    if (fetchedItems.isNotEmpty()) {
-                        withContext(Dispatchers.Main) {
-                            fetchedItems.forEach { item ->
-                                if (mediaList.none { it.id == item.id }) {
-                                    mediaList.add(item)
-                                }
-                            }
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                // في حالة انقطاع الإنترنت أو بطئه، يعتمد التطبيق على القائمة الأساسية الجاهزة فوراً
-            }
-        }
-    }
 
     fun toggleFavorite(id: String) {
         if (favoriteIds.contains(id)) favoriteIds.remove(id) else favoriteIds.add(id)
@@ -444,8 +378,7 @@ fun SplashScreen(onSplashFinished: () -> Unit) {
 
     LaunchedEffect(key1 = true) {
         startAnimation = true
-        MediaRepository.fetchTrendingFromTMDB()
-        delay(2000)
+        delay(1800)
         onSplashFinished()
     }
 
@@ -478,10 +411,6 @@ fun HomeScreen(onMediaClick: (String) -> Unit) {
     val filteredList = if (selectedCategory == "all") MediaRepository.mediaList else MediaRepository.mediaList.filter { it.type == selectedCategory }
     val banner = MediaRepository.mediaList.firstOrNull()
 
-    LaunchedEffect(Unit) {
-        MediaRepository.fetchTrendingFromTMDB()
-    }
-
     LazyColumn(modifier = Modifier.fillMaxSize()) {
         if (banner != null) {
             item {
@@ -512,7 +441,7 @@ fun HomeScreen(onMediaClick: (String) -> Unit) {
             }
         }
         item {
-            Text("الأكثر شهرة ورواجاً 🔥", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 16.dp), color = Color.White)
+            Text("الأكثر مشاهدة وشهرة 🔥", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 16.dp), color = Color.White)
             Spacer(modifier = Modifier.height(10.dp))
             LazyRow(contentPadding = PaddingValues(horizontal = 12.dp)) {
                 items(filteredList) { media -> MediaCard(item = media) { onMediaClick(media.id) } }
@@ -613,7 +542,6 @@ fun DetailScreen(mediaId: String, onPlayEpisode: (String, Int, String) -> Unit) 
     var selectedEpForPlay by remember { mutableStateOf<Episode?>(null) }
     var selectedEpForDownload by remember { mutableStateOf<Episode?>(null) }
 
-    // نافذة اختيار السيرفر والجودة للمشاهدة
     if (selectedEpForPlay != null) {
         val ep = selectedEpForPlay!!
         AlertDialog(
@@ -648,7 +576,6 @@ fun DetailScreen(mediaId: String, onPlayEpisode: (String, Int, String) -> Unit) 
         )
     }
 
-    // نافذة اختيار السيرفر والجودة للتنزيل
     if (selectedEpForDownload != null) {
         val ep = selectedEpForDownload!!
         AlertDialog(
@@ -940,6 +867,7 @@ class MainActivity : ComponentActivity() {
 """
 }
 
+# 1. كتابة ملفات المشروع
 for path, content in files.items():
     parent = os.path.dirname(path)
     if parent:
@@ -948,26 +876,31 @@ for path, content in files.items():
         f.write(content.strip())
     print(f"Generated: {path}")
 
-def make_png_icon(width, height, r=13, g=34, b=58):
-    raw_data = b"".join(b"\x00" + bytes([r, g, b, 255] * width) for _ in range(height))
-    compressed = zlib.compress(raw_data)
-    def chunk(tag, data):
-        return struct.pack(">I", len(data)) + tag + data + struct.pack(">I", zlib.crc32(tag + data) & 0xffffffff)
-    ihdr = struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0)
-    return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr) + chunk(b"IDAT", compressed) + chunk(b"IEND", b"")
-
-icon_targets = {
-    "app/src/main/res/mipmap-mdpi/ic_launcher.png": 48,
-    "app/src/main/res/mipmap-hdpi/ic_launcher.png": 72,
-    "app/src/main/res/mipmap-xhdpi/ic_launcher.png": 96,
-    "app/src/main/res/mipmap-xxhdpi/ic_launcher.png": 144,
-    "app/src/main/res/mipmap-xxxhdpi/ic_launcher.png": 192,
-}
-
-for icon_path, icon_size in icon_targets.items():
-    os.makedirs(os.path.dirname(icon_path), exist_ok=True)
-    with open(icon_path, "wb") as f:
-        f.write(make_png_icon(icon_size, icon_size))
-    print(f"Icon PNG Generated: {icon_path}")
+# 2. أخذ ملف صورتك الحقيقية icon.png وتوليد جميع مقاسات أندرويد تلقائياً بدقة متناهية
+if os.path.exists("icon.png"):
+    try:
+        from PIL import Image
+        print("🎨 جاري معالجة صورتك الأصلية icon.png وتحويلها لأيقونات أندرويد...")
+        src_img = Image.open("icon.png").convert("RGBA")
+        
+        targets = [
+            ("app/src/main/res/mipmap-mdpi", 48),
+            ("app/src/main/res/mipmap-hdpi", 72),
+            ("app/src/main/res/mipmap-xhdpi", 96),
+            ("app/src/main/res/mipmap-xxhdpi", 144),
+            ("app/src/main/res/mipmap-xxxhdpi", 192),
+            ("app/src/main/res/drawable", 192)
+        ]
+        
+        for folder, size in targets:
+            os.makedirs(folder, exist_ok=True)
+            resized = src_img.resize((size, size), Image.Resampling.LANCZOS)
+            resized.save(os.path.join(folder, "ic_launcher.png"), "PNG")
+            resized.save(os.path.join(folder, "ic_launcher_round.png"), "PNG")
+            print(f"✔️ تم إنشاء الأيقونة بمقاس ({size}x{size}) في: {folder}")
+            
+        print("🎉 تم تحويل صورتك الأصلية بنجاح 100%!")
+    except Exception as e:
+        print(f"تحذير: {e}")
 
 print("ALL_FILES_GENERATED_SUCCESSFULLY_100%")
