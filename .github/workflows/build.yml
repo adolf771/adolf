@@ -13,9 +13,17 @@ jobs:
     - name: Checkout Source Code
       uses: actions/checkout@v4
 
-    - name: Unpack Any ZIP Found
+    - name: Unpack and Move Files
       run: |
         unzip -o *.zip
+        # البحث التلقائي عن ملف الإعدادات ونقله للرئيسية إن وجد في مجلد فرعي
+        if [ ! -f "settings.gradle.kts" ] && [ ! -f "settings.gradle" ]; then
+          DIR=$(find . -maxdepth 2 -name "settings.gradle.kts" -o -name "settings.gradle" | head -n 1 | xargs -r dirname)
+          if [ -n "$DIR" ] && [ "$DIR" != "." ]; then
+            echo "Moving files from $DIR to root..."
+            cp -r $DIR/* .
+          fi
+        fi
         ls -la
 
     - name: Set up JDK 17
@@ -26,12 +34,13 @@ jobs:
 
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v3
+      with:
+        gradle-version: '8.7'
 
     - name: Build Palestine Movie APK
-      run: gradle assembleDebug --no-daemon
+      run: gradle assembleDebug --stacktrace --no-daemon
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: Palestine-Movie-App
-        path: app/build/outputs/apk/debug/*.apk
+        na
