@@ -1,5 +1,5 @@
 import os
-from PIL import Image
+from PIL import Image, ImageDraw
 import requests
 import json
 import time
@@ -190,7 +190,7 @@ object MediaRepository {
         Episode(1, "مشاهدة الفيلم كاملاً بأعلى جودة", buildServers(1), duration)
     )
 
-    // --- تم جلب البيانات تلقائياً بواسطة generator.py (OMDb + Jikan) ---
+    // --- تم جلب البيانات تلقائياً بواسطة generator_final.py (OMDb + Jikan) ---
     val mediaList = mutableStateListOf<MediaItem>(
 """
 
@@ -994,31 +994,40 @@ for path, content in files.items():
         f.write(content.strip())
     print(f"Generated: {path}")
 
-# معالجة وتوليد الأيقونة الأصلية
+# ================== معالجة وتوليد أيقونة التطبيق ==================
+# ملاحظة: على GitHub Actions ما في صورة مرفوعة يدوياً متل Colab، فلازم نضمن
+# إنه دايماً في أيقونة (ولو افتراضية) وإلا البناء بيفشل لأن AndroidManifest
+# بيرجع لـ @mipmap/ic_launcher.
 png_candidates = [f for f in os.listdir(".") if f.lower().endswith(".png") and not f.startswith(".")]
 if png_candidates:
     icon_source = png_candidates[0]
     print(f"🎨 تم العثور على صورتك المرفوعة: {icon_source}")
     logo = Image.open(icon_source).convert("RGBA")
+else:
+    print("⚠️ ما في صورة PNG بجذر المشروع، رح يتم توليد أيقونة افتراضية بدل ما يفشل البناء...")
+    logo = Image.new("RGBA", (300, 300), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(logo)
+    draw.ellipse((10, 10, 290, 290), fill=(229, 9, 20, 255))
+    draw.polygon([(90, 80), (90, 220), (230, 150)], fill=(255, 255, 255, 255))
 
-    bg = Image.new("RGBA", (512, 512), (13, 34, 58, 255))
-    logo.thumbnail((440, 440), Image.Resampling.LANCZOS)
-    offset = ((512 - logo.width) // 2, (512 - logo.height) // 2)
-    bg.paste(logo, offset, mask=logo)
+bg = Image.new("RGBA", (512, 512), (13, 34, 58, 255))
+logo.thumbnail((440, 440), Image.Resampling.LANCZOS)
+offset = ((512 - logo.width) // 2, (512 - logo.height) // 2)
+bg.paste(logo, offset, mask=logo)
 
-    densities = {
-        "app/src/main/res/mipmap-mdpi/ic_launcher.png": 48,
-        "app/src/main/res/mipmap-hdpi/ic_launcher.png": 72,
-        "app/src/main/res/mipmap-xhdpi/ic_launcher.png": 96,
-        "app/src/main/res/mipmap-xxhdpi/ic_launcher.png": 144,
-        "app/src/main/res/mipmap-xxxhdpi/ic_launcher.png": 192,
-        "app/src/main/res/drawable/ic_launcher.png": 192,
-    }
-    for p, sz in densities.items():
-        os.makedirs(os.path.dirname(p), exist_ok=True)
-        r = bg.resize((sz, sz), Image.Resampling.LANCZOS)
-        r.save(p, "PNG")
-        r.save(p.replace("ic_launcher", "ic_launcher_round"), "PNG")
-        print(f"Icon PNG Ready -> {p}")
+densities = {
+    "app/src/main/res/mipmap-mdpi/ic_launcher.png": 48,
+    "app/src/main/res/mipmap-hdpi/ic_launcher.png": 72,
+    "app/src/main/res/mipmap-xhdpi/ic_launcher.png": 96,
+    "app/src/main/res/mipmap-xxhdpi/ic_launcher.png": 144,
+    "app/src/main/res/mipmap-xxxhdpi/ic_launcher.png": 192,
+    "app/src/main/res/drawable/ic_launcher.png": 192,
+}
+for p, sz in densities.items():
+    os.makedirs(os.path.dirname(p), exist_ok=True)
+    r = bg.resize((sz, sz), Image.Resampling.LANCZOS)
+    r.save(p, "PNG")
+    r.save(p.replace("ic_launcher", "ic_launcher_round"), "PNG")
+    print(f"Icon PNG Ready -> {p}")
 
 print("ALL_DONE_SUCCESSFULLY_100%")
