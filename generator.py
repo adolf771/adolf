@@ -1,7 +1,8 @@
 import os
-from PIL import Image, ImageDraw
+import zlib
+import struct
 
-# 1. قائمة ملفات المشروع
+# 1. قائمة ملفات المشروع الكاملة
 files = {
     "settings.gradle.kts": """pluginManagement {
     repositories {
@@ -45,8 +46,8 @@ android {
         applicationId = "com.stream.hitv"
         minSdk = 24
         targetSdk = 34
-        versionCode = 9
-        versionName = "9.0"
+        versionCode = 10
+        versionName = "10.0"
     }
 
     compileOptions {
@@ -82,6 +83,65 @@ dependencies {
 }
 """,
 
+    # أيقونة التطبيق التوافقية (Adaptive Vector)
+    "app/src/main/res/drawable/ic_launcher_background.xml": """<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#0D223A"
+        android:pathData="M0,0h108v108h-108z"/>
+    <path
+        android:fillColor="#153658"
+        android:pathData="M0,50 L108,0 L108,108 L0,108 Z"/>
+</vector>
+""",
+
+    "app/src/main/res/drawable/ic_launcher_foreground.xml": """<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- قبة الصخرة في الأسفل -->
+    <path
+        android:fillColor="#1F4E79"
+        android:pathData="M30,95 C30,68 78,68 78,95 Z"/>
+    <path
+        android:fillColor="#2A6496"
+        android:pathData="M52,68 L56,68 L54,61 Z"/>
+    
+    <!-- شريط الفيلم بهيئة حرف P -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M36,20 L64,20 C76,20 84,28 84,42 C84,56 76,64 64,64 L48,64 L48,88 L36,88 Z"/>
+    
+    <!-- تجويف حرف P الداخلي -->
+    <path
+        android:fillColor="#0D223A"
+        android:pathData="M48,32 L62,32 C67,32 70,36 70,42 C70,48 67,52 62,52 L48,52 Z"/>
+    
+    <!-- النجمة الحمراء -->
+    <path
+        android:fillColor="#E50914"
+        android:pathData="M61,36 L63,41 L68,41 L64,44 L66,49 L61,46 L57,49 L58,44 L55,41 L60,41 Z"/>
+</vector>
+""",
+
+    "app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml": """<?xml version="1.0" encoding="utf-8"?>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@drawable/ic_launcher_background"/>
+    <foreground android:drawable="@drawable/ic_launcher_foreground"/>
+</adaptive-icon>
+""",
+
+    "app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml": """<?xml version="1.0" encoding="utf-8"?>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@drawable/ic_launcher_background"/>
+    <foreground android:drawable="@drawable/ic_launcher_foreground"/>
+</adaptive-icon>
+""",
+
     "app/src/main/AndroidManifest.xml": """<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
@@ -91,7 +151,7 @@ dependencies {
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
-        android:roundIcon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:label="Palestine Movie"
         android:supportsRtl="true"
         android:usesCleartextTraffic="true"
@@ -767,33 +827,15 @@ for path, content in files.items():
         f.write(content.strip())
     print(f"Generated: {path}")
 
-# 3. توليد صورة أيقونة التطبيق الحقيقية PNG بدقة 512x512 مطابقة لتصميمك
-print("🎨 جاري رسم وتوليد أيقونة التطبيق الحقيقية بصيغة PNG...")
-w, h = 512, 512
-img = Image.new("RGBA", (w, h), (13, 34, 58, 255))
-draw = ImageDraw.Draw(img)
+# 3. توليد صور PNG للأيقونة بجميع مقاسات أندرويد باستخدام مكتبات بايثون القياسية (بدون أي مكتبة خارجية)
+def make_png_icon(width, height, r=13, g=34, b=58):
+    raw_data = b"".join(b"\x00" + bytes([r, g, b, 255] * width) for _ in range(height))
+    compressed = zlib.compress(raw_data)
+    def chunk(tag, data):
+        return struct.pack(">I", len(data)) + tag + data + struct.pack(">I", zlib.crc32(tag + data) & 0xffffffff)
+    ihdr = struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0)
+    return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr) + chunk(b"IDAT", compressed) + chunk(b"IEND", b"")
 
-# رسم قبة الصخرة في الأسفل
-draw.pieslice([100, 310, 412, 622], 180, 360, fill=(31, 78, 121, 255))
-draw.rectangle([250, 290, 262, 320], fill=(42, 100, 150, 255))
-draw.polygon([(256, 270), (248, 295), (264, 295)], fill=(42, 100, 150, 255))
-
-# رسم شريط الفيلم الخارجي بهيئة حرف P
-draw.rounded_rectangle([140, 80, 230, 430], radius=20, fill=(255, 255, 255, 255))
-draw.rounded_rectangle([140, 80, 390, 290], radius=90, fill=(255, 255, 255, 255))
-
-# التجويف الداخلي لشريط الفيلم
-draw.rounded_rectangle([220, 130, 320, 240], radius=45, fill=(13, 34, 58, 255))
-
-# النجمة الحمراء داخل حلقة حرف الـ P
-star_pts = [
-    (270, 150), (276, 168), (295, 168), (280, 180),
-    (286, 198), (270, 187), (254, 198), (260, 180),
-    (245, 168), (264, 168)
-]
-draw.polygon(star_pts, fill=(229, 9, 20, 255))
-
-# حفظ أيقونة الـ PNG بجميع مقاسات أندرويد لتعمل على كل الهواتف إجبارياً
 icon_targets = {
     "app/src/main/res/mipmap-mdpi/ic_launcher.png": 48,
     "app/src/main/res/mipmap-hdpi/ic_launcher.png": 72,
@@ -804,8 +846,8 @@ icon_targets = {
 
 for icon_path, icon_size in icon_targets.items():
     os.makedirs(os.path.dirname(icon_path), exist_ok=True)
-    resized = img.resize((icon_size, icon_size), Image.Resampling.LANCZOS)
-    resized.save(icon_path, "PNG")
-    print(f"Icon PNG Generated: {icon_path} ({icon_size}x{icon_size})")
+    with open(icon_path, "wb") as f:
+        f.write(make_png_icon(icon_size, icon_size))
+    print(f"Icon PNG Generated: {icon_path}")
 
-print("ALL_FILES_AND_ICONS_GENERATED_SUCCESSFULLY_100%")
+print("ALL_FILES_GENERATED_SUCCESSFULLY_100%")
