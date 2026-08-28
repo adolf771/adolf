@@ -29,7 +29,8 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libssl-dev libffi-dev python3-dev aidl libjpeg-dev
         pip install --upgrade pip
-        pip install buildozer cython==0.29.36 requests pillow
+        # استخدام إصدار حديث ومستقر ومطابق لـ Buildozer تلقائياً لتجنب خطأ بناء الـ Wheel
+        pip install buildozer cython requests pillow
 
     - name: Generate and Patch Buildozer Specification
       run: |
@@ -43,7 +44,7 @@ jobs:
         sed -i 's/^# android.accept_sdk_license =.*/android.accept_sdk_license = True/' buildozer.spec
         sed -i 's/^#android.permissions =.*/android.permissions = INTERNET,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE/' buildozer.spec
         
-        # الحــــــــل الجذري: تحديد إصدار NDK مستقر رقمياً بالأرقام فقط لتجنب خطأ (r28c) والـ ValueError
+        # تحديد إصدار NDK مستقر رقمياً بالأرقام فقط لتجنب خطأ (r28c) السابق والـ ValueError
         sed -i 's/^# android.ndk =.*/android.ndk = 25b/' buildozer.spec
         sed -i 's/^# android.api =.*/android.api = 33/' buildozer.spec
         
@@ -57,7 +58,7 @@ jobs:
 
     - name: Build Android APK with Buildozer
       run: |
-        # تشغيل بناء الأندرويد بشكل نظيف ومستقر
+        # تشغيل بناء الأندرويد بشكل نظيف ومستقر مع إعطاء صلاحيات الرخص كاملة
         buildozer android debug
 
     - name: Upload Real Android APK
