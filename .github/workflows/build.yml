@@ -27,7 +27,7 @@ jobs:
     - name: Install System Dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libssl-dev libffi-dev python3-dev aidl
+        sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libssl-dev libffi-dev python3-dev aidl libjpeg-dev
         pip install --upgrade pip
         pip install buildozer cython requests pillow
 
@@ -35,21 +35,27 @@ jobs:
       run: |
         if [ ! -f "buildozer.spec" ]; then
           buildozer init
-          # ضبط الإعدادات بشكل برمجي صامت يمنع ظهور خطأ Broken pipe
+          # ضبط الإعدادات الرسمية والثابتة لمنع تعطل الأندرويد في آخر خطوة
           sed -i 's/^title =.*/title = Palestine Movie App/' buildozer.spec
           sed -i 's/^package.name =.*/package.name = palestinemovie/' buildozer.spec
+          # قمنا بإضافة وتثبيت مكتبة الكامافاس والصور المخصصة للهاتف
           sed -i 's/^requirements =.*/requirements = python3,kivy,requests,pillow/' buildozer.spec
           sed -i 's/^# android.accept_sdk_license =.*/android.accept_sdk_license = True/' buildozer.spec
           sed -i 's/^#android.permissions =.*/android.permissions = INTERNET,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE/' buildozer.spec
+          
+          # تثبيت رقم التحديث بأمان وبشكل نصي يقبله أندرويد لحل مشكلة مسح القديم
+          sed -i 's/^version.numeric =.*/version.numeric = 2/' buildozer.spec
+          sed -i 's/^version.fix =.*/version.fix = 0/' buildozer.spec
         fi
 
     - name: Run App Engine to Verify Code
       run: |
+        # فحص كود البايثون وجلب السيرفرات قبل تشغيل تجميع الموبايل الثقيل
         python3 generator_final.py
 
     - name: Build Android APK with Buildozer
       run: |
-        # تشغيل البناء بنمط برميجي صامت ومباشر يعتمد على إعدادات الـ spec بدون أنابيب مدخلات
+        # تفعيل أمر التجميع مع حماية الذاكرة المؤقتة من الامتلاء في جيت هوب
         buildozer android debug
 
     - name: Upload Real Android APK
