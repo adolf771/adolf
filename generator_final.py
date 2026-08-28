@@ -7,7 +7,7 @@ import subprocess
 
 # ================== تشغيل سحب الروابط تلقائياً ==================
 print("🔄 جاري فحص وتحديث سيرفرات البث الذكية والـ APIs المفتوحة...")
-CONSUMET_BASE_URL = "https://consumet.org"
+CONSUMET_BASE_URL = "https://api.consumet.org"
 
 # ================== إعدادات جلب البيانات ==================
 TMDB_API_KEY = "af9a9f29019a8416529a60c07110347d"
@@ -65,6 +65,7 @@ def fetch_live_anime_links(anime_title, ep_count):
             server = f'StreamServer({kt_str("🎬 سيرفر 1")}, {kt_str("HD")}, {kt_str("https://googleapis.com")}, {kt_str("تلقائي")})'
             eps_kt.append(f'Episode({num}, {kt_str(title)}, listOf({server}))')
     return "listOf(\n                " + ",\n                ".join(eps_kt) + "\n            )"
+
 def format_runtime(minutes):
     try:
         minutes = int(minutes)
