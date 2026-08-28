@@ -38,6 +38,14 @@ jobs:
     - name: Generate Code and Icons
       run: python3 generator_final.py
 
+    - name: Auto-increment Version Code
+      run: |
+        BUILD_NUM=${{ github.run_number }}
+        echo "Updating version code to $BUILD_NUM"
+        # هذه الخطوة تحدث رقم الإصدار تلقائياً بناءً على رقم الـ Run في جيت هاب
+        sed -i "s/versionCode = [0-9]*/versionCode = $BUILD_NUM/g" app/build.gradle.kts || true
+        sed -i "s/versionCode [0-9]*/versionCode $BUILD_NUM/g" app/build.gradle.kts || true
+
     - name: Build Palestine Movie APK
       run: gradle assembleDebug --no-daemon
 
