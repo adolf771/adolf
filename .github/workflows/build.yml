@@ -24,26 +24,18 @@ jobs:
       with:
         python-version: '3.10'
 
-    - name: Install Buildozer and Dependencies
+    - name: Install System Dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libssl-dev libffi-dev python3-dev aidl
         pip install --upgrade pip
         pip install buildozer cython requests pillow
 
-    - name: Pre-Accept Android SDK Licenses
-      run: |
-        # تهيئة مجلدات الإعدادات وتأكيد الموافقة على رخص جوجل لمنع مشكلة AIDL
-        mkdir -p ~/.buildozer/android/platform/android-sdk/licenses
-        echo "241a50a5b92525381211394233f1b6690555d9d3" > ~/.buildozer/android/platform/android-sdk/licenses/android-sdk-license
-        echo "84831b9409646a918e30573bab4c9c91346d8abd" > ~/.buildozer/android/platform/android-sdk/licenses/android-sdk-preview-license
-        echo "65111221746b5c1c60f5a5c2d3356020e8a721d0" > ~/.buildozer/android/platform/android-sdk/licenses/android-googletv-license
-
     - name: Generate Buildozer Specification
       run: |
         if [ ! -f "buildozer.spec" ]; then
           buildozer init
-          # تعديل ملف المواصفات ليتوافق مع الرخص والتحميل وصلاحيات الـ APK
+          # ضبط الإعدادات بشكل برمجي صامت يمنع ظهور خطأ Broken pipe
           sed -i 's/^title =.*/title = Palestine Movie App/' buildozer.spec
           sed -i 's/^package.name =.*/package.name = palestinemovie/' buildozer.spec
           sed -i 's/^requirements =.*/requirements = python3,kivy,requests,pillow/' buildozer.spec
@@ -57,8 +49,8 @@ jobs:
 
     - name: Build Android APK with Buildozer
       run: |
-        # تشغيل البناء مع تفعيل الموافقة على الرخص ضمن بيئة صامتة
-        yes | buildozer android debug
+        # تشغيل البناء بنمط برميجي صامت ومباشر يعتمد على إعدادات الـ spec بدون أنابيب مدخلات
+        buildozer android debug
 
     - name: Upload Real Android APK
       uses: actions/upload-artifact@v4
