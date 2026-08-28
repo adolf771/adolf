@@ -24,12 +24,6 @@ jobs:
       with:
         python-version: '3.10'
 
-    - name: Set up Flutter Environment
-      uses: subosito/flutter-action@v2
-      with:
-        flutter-version: '3.x'
-        channel: 'stable'
-
     - name: Install Fast Application Dependencies
       run: |
         pip install --upgrade pip
@@ -41,8 +35,8 @@ jobs:
 
     - name: Build Fast Android APK
       run: |
-        # التعديل: قمنا بحذف كلمة --release ليتوافق مع تحديث فلت 2026 تلقائياً
-        flet build apk --project PalestineMovieApp
+        # الحــــــــل: ضخ الموافقة التلقائية الصامتة لتخطي سؤال Proceed ومنع خطأ EOFError
+        echo "y" | flet build apk --project PalestineMovieApp
 
     - name: Upload Real Android APK
       uses: actions/upload-artifact@v4
