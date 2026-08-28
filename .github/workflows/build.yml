@@ -41,7 +41,8 @@ jobs:
 
     - name: Build Fast Android APK
       run: |
-        flet build apk --project PalestineMovieApp --release
+        # التعديل: قمنا بحذف كلمة --release ليتوافق مع تحديث فلت 2026 تلقائياً
+        flet build apk --project PalestineMovieApp
 
     - name: Upload Real Android APK
       uses: actions/upload-artifact@v4
