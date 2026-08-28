@@ -8,7 +8,6 @@ import subprocess
 # ================== تشغيل سحب الروابط تلقائياً ==================
 print("🔄 جاري تحديث روابط الفيديو عبر سكريبتات الـ Node.js...")
 try:
-    # تأكد أن اسم ملف الـ JS الرئيسي لديك هو scraper.js أو قم بتعديله هنا حسب اسم ملفك
     subprocess.run(["node", "scraper.js"], check=True)
     print("✅ تم تحديث ملف video_links.json بنجاح!")
 except Exception as e:
@@ -20,9 +19,8 @@ TMDB_BASE_URL = "https://api.themoviedb.org/3"
 TMDB_IMG_BASE = "https://image.tmdb.org/t/p/w500"
 
 JIKAN_BASE_URL = "https://api.jikan.moe/v4"
-JIKAN_PAGES = 20   # 20 صفحة * ~25 = حوالي 500 أنمي
+JIKAN_PAGES = 15
 
-# ضيف هون أي عدد بدك من IMDb IDs (فيلم/مسلسل بكل سطر)
 MOVIE_IMDB_IDS = [
     "tt0111161", "tt0068646", "tt0468569", "tt0071562",
     "tt0050083", "tt0108052", "tt0167260", "tt0110912",
@@ -34,33 +32,25 @@ SERIES_IMDB_IDS = [
     "tt0185906", "tt2306299", "tt4574334", "tt0417299",
 ]
 
-# ================== روابط الفيديو الحقيقية (المرخّصة) ==================
 VIDEO_LINKS_FILE = "video_links.json"
-
 
 def load_video_links():
     if not os.path.exists(VIDEO_LINKS_FILE):
-        print(f"ℹ️ ما في ملف {VIDEO_LINKS_FILE} بجانب السكربت — رح تستخدم كل الأعمال فيديو تجريبي مؤقتاً.")
         return {}
     try:
         with open(VIDEO_LINKS_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
-    except Exception as e:
-        print(f"⚠️ خطأ بقراءة {VIDEO_LINKS_FILE}: {e}")
+    except Exception:
         return {}
 
-
 VIDEO_LINKS = load_video_links()
-
 
 def kt_str(s):
     return json.dumps(s, ensure_ascii=False)
 
-
 def build_real_movie_episodes_kt(url):
     server = f'StreamServer({kt_str("🎬 سيرفر مباشر")}, {kt_str("HD")}, {kt_str(url)}, {kt_str("غير معروف")})'
     return f'listOf(Episode(1, {kt_str("مشاهدة الفيلم كاملاً بأعلى جودة")}, listOf({server})))'
-
 
 def build_real_series_episodes_kt(episodes_list):
     eps_kt = []
@@ -71,7 +61,6 @@ def build_real_series_episodes_kt(episodes_list):
         server = f'StreamServer({kt_str("🎬 سيرفر مباشر")}, {kt_str("HD")}, {kt_str(url)}, {kt_str("غير معروف")})'
         eps_kt.append(f'Episode({num}, {kt_str(title)}, listOf({server}))')
     return "listOf(\n                " + ",\n                ".join(eps_kt) + "\n            )"
-
 
 def format_runtime(minutes):
     try:
@@ -84,9 +73,7 @@ def format_runtime(minutes):
     except (ValueError, TypeError):
         return "2h 00m"
 
-
 def fetch_tmdb_find(imdb_id):
-    """يحدد نوع العمل (فيلم/مسلسل) ويرجع معرّف TMDb المرتبط بمعرف IMDb."""
     try:
         url = f"{TMDB_BASE_URL}/find/{imdb_id}"
         params = {"api_key": TMDB_API_KEY, "external_source": "imdb_id"}
@@ -97,19 +84,15 @@ def fetch_tmdb_find(imdb_id):
         elif data.get("tv_results"):
             return "tv", data["tv_results"][0]["id"]
         return None, None
-    except Exception as e:
-        print(f"⚠️ خطأ بجلب {imdb_id} من TMDb (find): {e}")
+    except Exception:
         return None, None
 
-
 def fetch_tmdb_details(media_type, tmdb_id):
-    """يجيب التفاصيل الكاملة (عربي أولاً، وإذا ناقص الوصف يرجع للإنجليزي)."""
     try:
         url = f"{TMDB_BASE_URL}/{media_type}/{tmdb_id}"
         params = {"api_key": TMDB_API_KEY, "language": "ar"}
         r = requests.get(url, params=params, timeout=10)
         data = r.json()
-
         if not data.get("overview"):
             params["language"] = "en-US"
             r2 = requests.get(url, params=params, timeout=10)
@@ -119,15 +102,11 @@ def fetch_tmdb_details(media_type, tmdb_id):
                 data["title"] = data_en.get("title")
             if not data.get("name") and data_en.get("name"):
                 data["name"] = data_en.get("name")
-
         return data
-    except Exception as e:
-        print(f"⚠️ خطأ بجلب تفاصيل {tmdb_id} ({media_type}): {e}")
+    except Exception:
         return None
 
-
 def fetch_tmdb_item(imdb_id):
-    """يرجع (media_type, details_dict) أو (None, None) إذا فشل."""
     media_type, tmdb_id = fetch_tmdb_find(imdb_id)
     if not tmdb_id:
         return None, None
@@ -135,7 +114,6 @@ def fetch_tmdb_item(imdb_id):
     if not details:
         return None, None
     return media_type, details
-
 
 def fetch_jikan_anime(max_pages=JIKAN_PAGES):
     all_results = []
@@ -149,12 +127,10 @@ def fetch_jikan_anime(max_pages=JIKAN_PAGES):
             if not data:
                 break
             all_results.extend(data)
-            time.sleep(0.4)
-        except Exception as e:
-            print(f"⚠️ خطأ بصفحة {page} من Jikan: {e}")
+            time.sleep(0.3)
+        except Exception:
             break
     return all_results
-
 
 def build_movie_kt(item, imdb_id=None):
     id_val = f"m_{item.get('id', 'x')}"
@@ -184,7 +160,6 @@ def build_movie_kt(item, imdb_id=None):
         f'            {rating}, "{year}", "movie", "أفلام رائجة 🎬", {episodes_kt}\n'
         '        ),'
     )
-
 
 def build_series_kt(item, imdb_id=None):
     id_val = f"s_{item.get('id', 'x')}"
@@ -219,7 +194,6 @@ def build_series_kt(item, imdb_id=None):
         '        ),'
     )
 
-
 def build_anime_kt(item):
     id_val = f"a_{item.get('mal_id')}"
     title = item.get("title", "بدون عنوان")
@@ -244,9 +218,7 @@ def build_anime_kt(item):
         '        ),'
     )
 
-
 def build_media_list_kt():
-    print("🔄 جاري جلب الأفلام من TMDb...")
     movie_items = []
     for imdb_id in MOVIE_IMDB_IDS:
         media_type, data = fetch_tmdb_item(imdb_id)
@@ -254,9 +226,8 @@ def build_media_list_kt():
             movie_items.append(build_movie_kt(data, imdb_id))
         elif data:
             movie_items.append(build_series_kt(data, imdb_id))
-        time.sleep(0.2)
+        time.sleep(0.1)
 
-    print("🔄 جاري جلب المسلسلات من TMDb...")
     series_items = []
     for imdb_id in SERIES_IMDB_IDS:
         media_type, data = fetch_tmdb_item(imdb_id)
@@ -264,17 +235,13 @@ def build_media_list_kt():
             series_items.append(build_series_kt(data, imdb_id))
         elif data:
             series_items.append(build_movie_kt(data, imdb_id))
-        time.sleep(0.2)
+        time.sleep(0.1)
 
-    print("🔄 جاري جلب الأنمي من Jikan (بدون مفتاح)...")
     anime_raw = fetch_jikan_anime()
     anime_items = [build_anime_kt(a) for a in anime_raw]
 
-    print(f"📊 تم جلب: {len(movie_items)} فيلم | {len(series_items)} مسلسل | {len(anime_items)} أنمي")
-
     all_items = movie_items + series_items + anime_items
     return "\n".join(all_items)
-
 
 REPO_TEMPLATE_BEFORE = """package com.stream.hitv.data.repository
 
@@ -331,11 +298,9 @@ REPO_TEMPLATE_AFTER = """
 }
 """
 
-
 def generate_media_repository_kt():
     media_objects_string = build_media_list_kt()
     return REPO_TEMPLATE_BEFORE + media_objects_string + REPO_TEMPLATE_AFTER
-
 
 files = {
     "settings.gradle.kts": """pluginManagement {
@@ -355,18 +320,15 @@ dependencyResolutionManagement {
 rootProject.name = "PalestineMovie"
 include(":app")
 """,
-
     "build.gradle.kts": """plugins {
     id("com.android.application") version "8.3.2" apply false
     id("org.jetbrains.kotlin.android") version "1.9.23" apply false
 }
 """,
-
     "gradle.properties": """org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
 android.useAndroidX=true
 android.nonTransitiveRClass=true
 """,
-
     "app/build.gradle.kts": """plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -380,8 +342,8 @@ android {
         applicationId = "com.stream.hitv"
         minSdk = 24
         targetSdk = 34
-        versionCode = 16
-        versionName = "16.0"
+        versionCode = 17
+        versionName = "17.0"
     }
 
     compileOptions {
@@ -416,7 +378,6 @@ dependencies {
     implementation("androidx.media3:media3-common:1.3.1")
 }
 """,
-
     "app/src/main/AndroidManifest.xml": """<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
@@ -445,7 +406,6 @@ dependencies {
     </application>
 </manifest>
 """,
-
     "app/src/main/res/values/themes.xml": """<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.HiTV" parent="android:Theme.Material.NoActionBar">
@@ -454,7 +414,6 @@ dependencies {
     </style>
 </resources>
 """,
-
     "app/src/main/java/com/stream/hitv/data/model/Models.kt": """package com.stream.hitv.data.model
 
 data class StreamServer(
@@ -498,7 +457,6 @@ data class DownloadItem(
     val size: String
 )
 """,
-
     "app/src/main/java/com/stream/hitv/ui/theme/Theme.kt": """package com.stream.hitv.ui.theme
 
 import androidx.compose.material3.*
@@ -523,7 +481,6 @@ fun HiTVTheme(content: @Composable () -> Unit) {
     )
 }
 """,
-
     "app/src/main/java/com/stream/hitv/ui/components/MediaCard.kt": """package com.stream.hitv.ui.components
 
 import androidx.compose.foundation.background
@@ -558,7 +515,6 @@ fun MediaCard(item: MediaItem, onClick: () -> Unit) {
     }
 }
 """,
-
     "app/src/main/java/com/stream/hitv/ui/screens/Screens.kt": """package com.stream.hitv.ui.screens
 
 import android.app.DownloadManager
@@ -640,7 +596,7 @@ fun HomeScreen(onMediaClick: (String) -> Unit) {
     val filteredList = if (selectedCategory == "all") MediaRepository.mediaList else MediaRepository.mediaList.filter { it.type == selectedCategory }
     val banner = MediaRepository.mediaList.firstOrNull()
 
-    LazyColumn(modifier = Modifier.fillMaxSize()) {
+    LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 90.dp)) {
         if (banner != null) {
             item {
                 Box(modifier = Modifier.fillMaxWidth().height(320.dp).clickable { onMediaClick(banner.id) }) {
@@ -672,10 +628,26 @@ fun HomeScreen(onMediaClick: (String) -> Unit) {
         item {
             Text("الأكثر مشاهدة وشهرة 🔥", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 16.dp), color = Color.White)
             Spacer(modifier = Modifier.height(10.dp))
-            LazyRow(contentPadding = PaddingValues(horizontal = 12.dp)) {
+            LazyRow(contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(filteredList) { media -> MediaCard(item = media) { onMediaClick(media.id) } }
             }
-            Spacer(modifier = Modifier.height(80.dp))
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+        item {
+            Text("جميع الأعمال المتوفرة 📂", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 16.dp), color = Color.White)
+            Spacer(modifier = Modifier.height(10.dp))
+        }
+        items(filteredList.chunked(3)) { rowItems ->
+            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                rowItems.forEach { media ->
+                    Box(modifier = Modifier.weight(1f)) {
+                        MediaCard(item = media) { onMediaClick(media.id) }
+                    }
+                }
+                repeat(3 - rowItems.size) {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+            }
         }
     }
 }
@@ -694,7 +666,7 @@ fun SearchScreen(onMediaClick: (String) -> Unit) {
             shape = RoundedCornerShape(12.dp), singleLine = true
         )
         Spacer(modifier = Modifier.height(16.dp))
-        LazyVerticalGrid(columns = GridCells.Fixed(3), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        LazyVerticalGrid(columns = GridCells.Fixed(3), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxSize()) {
             items(results) { media -> MediaCard(item = media) { onMediaClick(media.id) } }
         }
     }
@@ -709,7 +681,7 @@ fun FavoritesScreen(onMediaClick: (String) -> Unit) {
         if (favItems.isEmpty()) {
             Text("لا توجد أعمال في المفضلة بعد. اضغط على رمز القلب لإضافتها!", color = Color.Gray)
         } else {
-            LazyVerticalGrid(columns = GridCells.Fixed(3), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            LazyVerticalGrid(columns = GridCells.Fixed(3), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxSize()) {
                 items(favItems) { media -> MediaCard(item = media) { onMediaClick(media.id) } }
             }
         }
@@ -727,7 +699,7 @@ fun DownloadsScreen(onPlayDownloaded: (String, Int, Int) -> Unit) {
         if (downloads.isEmpty()) {
             Text("لا توجد حلقات محملة بعد للمشاهدة بدون إنترنت.", color = Color.Gray)
         } else {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxSize()) {
                 items(downloads) { item ->
                     val file = File(context.getExternalFilesDir(Environment.DIRECTORY_MOVIES), item.localFileName)
                     val isDownloaded = file.exists() && file.length() > 1024
@@ -899,7 +871,6 @@ fun DetailScreen(mediaId: String, onPlayEpisode: (String, Int, Int) -> Unit) {
     }
 }
 """,
-
     "app/src/main/java/com/stream/hitv/ui/player/PlayerScreen.kt": """package com.stream.hitv.ui.player
 
 import android.app.Activity
@@ -973,7 +944,6 @@ fun PlayerScreen(mediaId: String, episodeNum: Int, serverIndex: Int = 0) {
     }
 }
 """,
-
     "app/src/main/java/com/stream/hitv/ui/navigation/AppNavigation.kt": """package com.stream.hitv.ui.navigation
 
 import androidx.compose.foundation.layout.padding
@@ -1062,7 +1032,6 @@ fun AppNavigation() {
     }
 }
 """,
-
     "app/src/main/java/com/stream/hitv/MainActivity.kt": """package com.stream.hitv
 
 import android.os.Bundle
@@ -1105,10 +1074,8 @@ for path, content in files.items():
 png_candidates = [f for f in os.listdir(".") if f.lower().endswith(".png") and not f.startswith(".")]
 if png_candidates:
     icon_source = png_candidates[0]
-    print(f"🎨 تم العثور على صورتك المرفوعة: {icon_source}")
     logo = Image.open(icon_source).convert("RGBA")
 else:
-    print("⚠️ ما في صورة PNG بجذر المشروع، رح يتم توليد أيقونة افتراضية...")
     logo = Image.new("RGBA", (300, 300), (0, 0, 0, 0))
     draw = ImageDraw.Draw(logo)
     draw.ellipse((10, 10, 290, 290), fill=(229, 9, 20, 255))
@@ -1132,6 +1099,5 @@ for p, sz in densities.items():
     r = bg.resize((sz, sz), Image.Resampling.LANCZOS)
     r.save(p, "PNG")
     r.save(p.replace("ic_launcher", "ic_launcher_round"), "PNG")
-    print(f"Icon PNG Ready -> {p}")
 
 print("ALL_DONE_SUCCESSFULLY_100%")
