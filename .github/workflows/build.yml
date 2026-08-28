@@ -35,8 +35,12 @@ jobs:
 
     - name: Build Fast Android APK
       run: |
-        # الحــــــــل: ضخ الموافقة التلقائية الصامتة لتخطي سؤال Proceed ومنع خطأ EOFError
-        echo "y" | flet build apk --project PalestineMovieApp
+        # 1. قبول رخص أندرويد تلقائياً داخل بيئة فلاتر الجديدة
+        mkdir -p ~/.config/flutter
+        echo "y" | echo "y" | echo "y" | echo "y" | echo "y" | echo "y" | echo "y"
+        
+        # 2. الحــــــــل: إعلام الأداة باسم ملفك الرئيسي وتمرير الموافقة الصامتة للتجميع
+        echo "y" | flet build apk --project PalestineMovieApp --module-name generator_final
 
     - name: Upload Real Android APK
       uses: actions/upload-artifact@v4
