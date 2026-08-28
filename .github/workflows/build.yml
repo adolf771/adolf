@@ -19,27 +19,24 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
+    - name: Set up Python
+      uses: actions/setup-python@v5
       with:
-        node-version: '20'
+        python-version: '3.x'
 
-    - name: Run Scraper to Update Links
-      run: node scraper.js
+    - name: Install Dependencies
+      run: pip install pillow requests
+
+    - name: Generate Code and Live Streams
+      run: python3 generator_final.py
 
     - name: Setup Gradle 8.6
       uses: gradle/actions/setup-gradle@v3
       with:
         gradle-version: '8.6'
 
-    - name: Install Image Processor
-      run: pip install pillow requests
-
-    - name: Generate Code and Icons
-      run: python3 generator_final.py
-
     - name: Build Palestine Movie APK
-      run: gradle assembleDebug --no-daemon
+      run: ./gradlew assembleDebug --no-daemon || gradle assembleDebug --no-daemon
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
