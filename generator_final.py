@@ -3,6 +3,16 @@ from PIL import Image, ImageDraw
 import requests
 import json
 import time
+import subprocess
+
+# ================== تشغيل سحب الروابط تلقائياً ==================
+print("🔄 جاري تحديث روابط الفيديو عبر سكريبتات الـ Node.js...")
+try:
+    # تأكد أن اسم ملف الـ JS الرئيسي لديك هو scraper.js أو قم بتعديله هنا حسب اسم ملفك
+    subprocess.run(["node", "scraper.js"], check=True)
+    print("✅ تم تحديث ملف video_links.json بنجاح!")
+except Exception as e:
+    print(f"⚠️ تنبيه: لم يتم تشغيل سكريبت الـ Node.js تلقائياً ({e})، سيتم اعتماد الملف الموجود إن وجد.")
 
 # ================== إعدادات جلب البيانات ==================
 TMDB_API_KEY = "af9a9f29019a8416529a60c07110347d"
