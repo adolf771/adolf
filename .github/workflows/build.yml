@@ -27,20 +27,21 @@ jobs:
     - name: Install Fast Application Dependencies
       run: |
         pip install --upgrade pip
-        pip install flet requests pillow
+        pip install flet requests pillow urllib3 certifi idna charset-normalizer
+
+    - name: Download Custom App Icon
+      run: |
+        # تحميل الأيقونة الزرقاء الفخمة التي اخترتها مباشرة وتسميتها باسم المطور الرسمي
+        curl -L "https://i.top4top.io/s_3892uwoxs1.png" -o app_icon.png
 
     - name: Run App Engine to Verify Code
       run: |
         python3 generator_final.py
 
-    - name: Build Fast Android APK
+    - name: Build Fast Android APK with Custom Icon
       run: |
-        # 1. قبول رخص أندرويد تلقائياً داخل بيئة فلاتر الجديدة
-        mkdir -p ~/.config/flutter
-        echo "y" | echo "y" | echo "y" | echo "y" | echo "y" | echo "y" | echo "y"
-        
-        # 2. الحــــــــل: إعلام الأداة باسم ملفك الرئيسي وتمرير الموافقة الصامتة للتجميع
-        echo "y" | flet build apk --project PalestineMovieApp --module-name generator_final
+        # الحــــــــل: دمج الأيقونة الجديدة رسمياً وحشو حزم السيرفرات الفرعية (urllib3) دفعة واحدة
+        echo "y" | flet build apk --project PalestineMovieApp --module-name generator_final --icon app_icon.png --include-packages requests,pillow,urllib3,certifi,idna,charset-normalizer
 
     - name: Upload Real Android APK
       uses: actions/upload-artifact@v4
