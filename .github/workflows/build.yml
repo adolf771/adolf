@@ -19,6 +19,14 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Run Scraper to Update Links
+      run: node scraper.js
+
     - name: Setup Gradle 8.6
       uses: gradle/actions/setup-gradle@v3
       with:
