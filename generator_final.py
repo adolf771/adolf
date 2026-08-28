@@ -25,11 +25,6 @@ SERIES_IMDB_IDS = [
 ]
 
 # ================== روابط الفيديو الحقيقية (المرخّصة) ==================
-# يقرأ السكربت هذا الملف تلقائياً إذا كان موجوداً بنفس مجلد السكربت.
-# الشكل المطلوب داخل video_links.json:
-#   - للأفلام: المفتاح = IMDb ID، القيمة = رابط الفيديو (نص واحد)
-#   - للمسلسلات: المفتاح = IMDb ID، القيمة = قائمة حلقات، كل حلقة فيها number و url
-# أي عمل مش موجود بالملف رح ياخد فيديو تجريبي (demo) تلقائياً بدون ما يكسر التطبيق.
 VIDEO_LINKS_FILE = "video_links.json"
 
 
@@ -248,7 +243,6 @@ def build_media_list_kt():
         if data and media_type == "movie":
             movie_items.append(build_movie_kt(data, imdb_id))
         elif data:
-            # لو TMDb صنّفه مسلسل رغم إنه بلست الأفلام
             movie_items.append(build_series_kt(data, imdb_id))
         time.sleep(0.2)
 
@@ -259,7 +253,6 @@ def build_media_list_kt():
         if data and media_type == "tv":
             series_items.append(build_series_kt(data, imdb_id))
         elif data:
-            # لو TMDb صنّفه فيلم رغم إنه بلست المسلسلات
             series_items.append(build_movie_kt(data, imdb_id))
         time.sleep(0.2)
 
@@ -273,7 +266,6 @@ def build_media_list_kt():
     return "\n".join(all_items)
 
 
-# ================== قوالب MediaRepository.kt (نفس البنية الأصلية) ==================
 REPO_TEMPLATE_BEFORE = """package com.stream.hitv.data.repository
 
 import androidx.compose.runtime.mutableStateListOf
@@ -300,7 +292,6 @@ object MediaRepository {
         Episode(1, "مشاهدة الفيلم كاملاً بأعلى جودة", buildServers(1), duration)
     )
 
-    // --- تم جلب البيانات تلقائياً بواسطة generator_final.py (TMDb + Jikan) ---
     val mediaList = mutableStateListOf<MediaItem>(
 """
 
@@ -336,7 +327,6 @@ def generate_media_repository_kt():
     return REPO_TEMPLATE_BEFORE + media_objects_string + REPO_TEMPLATE_AFTER
 
 
-# ================== باقي ملفات المشروع (كما هي بدون تغيير) ==================
 files = {
     "settings.gradle.kts": """pluginManagement {
     repositories {
@@ -1090,11 +1080,9 @@ class MainActivity : ComponentActivity() {
 """
 }
 
-# ================== توليد MediaRepository.kt ديناميكياً وإضافته لقاموس الملفات ==================
 print("🚀 بدء عملية توليد المشروع...")
 files["app/src/main/java/com/stream/hitv/data/repository/MediaRepository.kt"] = generate_media_repository_kt()
 
-# كتابة ملفات المشروع
 print("💾 جاري كتابة ملفات المشروع...")
 for path, content in files.items():
     parent = os.path.dirname(path)
@@ -1104,14 +1092,13 @@ for path, content in files.items():
         f.write(content.strip())
     print(f"Generated: {path}")
 
-# ================== معالجة وتوليد أيقونة التطبيق ==================
 png_candidates = [f for f in os.listdir(".") if f.lower().endswith(".png") and not f.startswith(".")]
 if png_candidates:
     icon_source = png_candidates[0]
     print(f"🎨 تم العثور على صورتك المرفوعة: {icon_source}")
     logo = Image.open(icon_source).convert("RGBA")
 else:
-    print("⚠️ ما في صورة PNG بجذر المشروع، رح يتم توليد أيقونة افتراضية بدل ما يفشل البناء...")
+    print("⚠️ ما في صورة PNG بجذر المشروع، رح يتم توليد أيقونة افتراضية...")
     logo = Image.new("RGBA", (300, 300), (0, 0, 0, 0))
     draw = ImageDraw.Draw(logo)
     draw.ellipse((10, 10, 290, 290), fill=(229, 9, 20, 255))
