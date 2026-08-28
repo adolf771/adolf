@@ -11,11 +11,11 @@ CONSUMET_BASE_URL = "https://consumet.org"
 
 # ================== إعدادات جلب البيانات ==================
 TMDB_API_KEY = "af9a9f29019a8416529a60c07110347d"
-TMDB_BASE_URL = "https://api.themoviedb.org/3"
-TMDB_IMG_BASE = "https://image.tmdb.org/t/p/w500"
+TMDB_BASE_URL = "https://themoviedb.org"
+TMDB_IMG_BASE = "https://tmdb.org"
 
-JIKAN_BASE_URL = "https://api.jikan.moe/v4"
-JIKAN_PAGES = 3 # تم تقليله لـ 3 صفحات لضمان سلاسة حركة الواجهة وعدم تعليق الموبايل
+JIKAN_BASE_URL = "https://jikan.moe"
+JIKAN_PAGES = 3 
 
 MOVIE_IMDB_IDS = [
     "tt0111161", "tt0068646", "tt0468569", "tt0071562",
@@ -45,13 +45,12 @@ def build_real_series_episodes_kt(episodes_list):
         eps_kt.append(f'Episode({num}, {kt_str(title)}, listOf({server}))')
     return "listOf(\n                " + ",\n                ".join(eps_kt) + "\n            )"
 
-# محرك إضافي ذكي لجلب روابط حلقات الأنمي الحية وتخطي فيديو نورس
 def fetch_live_anime_links(anime_title, ep_count):
     eps_kt = []
     try:
         search_res = requests.get(f"{CONSUMET_BASE_URL}/anime/gogoanime/{anime_title}", timeout=4).json().get('results', [])
         if search_res:
-            anime_id = search_res[0]['id']
+            anime_id = search_res['id']
             for num in range(1, int(ep_count) + 1):
                 video_url = f"https://vidsrc.me{anime_title}&ep={num}"
                 title = f"الحلقة {num} - مترجمة للعربية"
@@ -149,7 +148,6 @@ def build_movie_kt(item, imdb_id=None):
     year = (item.get("release_date") or "0000")[:4] or "0000"
     runtime = format_runtime(item.get("runtime"))
 
-    # استخراج روابط أفلام حقيقية مدعومة للتنزيل والمشاهدة بدلاً من فيديو نورس الثابت
     real_url = f"https://vidsrc.to{imdb_id}" if imdb_id else "https://googleapis.com"
     episodes_kt = build_real_movie_episodes_kt(real_url.strip())
 
@@ -175,7 +173,6 @@ def build_series_kt(item, imdb_id=None):
         rating = 0.0
     year = (item.get("first_air_date") or "0000")[:4] or "0000"
     
-    # توليد سيرفرات مسلسلات حقيقية متنوعة قابلة للتحميل داخل التطبيق
     stream_url = f"https://vidsrc.to{imdb_id}" if imdb_id else "https://googleapis.com"
     dummy_eps = [{"number": i, "url": f"{stream_url}/1/{i}"} for i in range(1, 13)]
     episodes_kt = build_real_series_episodes_kt(dummy_eps)
@@ -204,7 +201,6 @@ def build_anime_kt(item):
     except (ValueError, TypeError):
         ep_count = 12
 
-    # ربط الحلقات بالبث التلقائي الحي بدلاً من التوليد الوهمي القديم
     episodes_kt = fetch_live_anime_links(title, ep_count)
 
     return (
@@ -241,6 +237,12 @@ def build_media_list_kt():
         
     all_items_str = "\n".join(movie_items) + "\n" + "\n".join(series_items) + "\n" + "\n".join(anime_items)
     
-    # التصدير المباشر والمغلق لملف كود الـ Kotlin النهائي بدون انقطاع النص
-    output_content = (
-        "package com.example.app.data\n\n"
+    # صياغة النص بطريقة بسيطة جداً تمنع حدوث أي أخطاء في الأقواس
+    output_content = "package com.example.app.data\n\nval mediaList = listOf(\n" + all_items_str + "\n)"
+    
+    with open("MediaData.kt", "w", encoding="utf-8") as f:
+        f.write(output_content)
+    print("\n🎉 نجاح تام! تم سحب كافة البيانات الحية وتصدير ملف التكوين للهاتف بنجاح وبسرعة فائقة!")
+
+if __name__ == "__main__":
+    build_media_list_kt()
