@@ -13,6 +13,12 @@ jobs:
     - name: Checkout Repository
       uses: actions/checkout@v4
 
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
@@ -21,31 +27,38 @@ jobs:
     - name: Install Buildozer and Dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libssl-dev libffi-dev python3-dev
+        sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libssl-dev libffi-dev python3-dev aidl
         pip install --upgrade pip
         pip install buildozer cython requests pillow
 
+    - name: Pre-Accept Android SDK Licenses
+      run: |
+        # تهيئة مجلدات الإعدادات وتأكيد الموافقة على رخص جوجل لمنع مشكلة AIDL
+        mkdir -p ~/.buildozer/android/platform/android-sdk/licenses
+        echo "241a50a5b92525381211394233f1b6690555d9d3" > ~/.buildozer/android/platform/android-sdk/licenses/android-sdk-license
+        echo "84831b9409646a918e30573bab4c9c91346d8abd" > ~/.buildozer/android/platform/android-sdk/licenses/android-sdk-preview-license
+        echo "65111221746b5c1c60f5a5c2d3356020e8a721d0" > ~/.buildozer/android/platform/android-sdk/licenses/android-googletv-license
+
     - name: Generate Buildozer Specification
       run: |
-        # توليد ملف إعدادات المصنع التلقائي للتطبيق إذا لم يكن موجوداً
         if [ ! -f "buildozer.spec" ]; then
           buildozer init
-          # تعديل الإعدادات لتدعم مكتبات الإنترنت والصور التي يحتاجها تطبيقك
+          # تعديل ملف المواصفات ليتوافق مع الرخص والتحميل وصلاحيات الـ APK
           sed -i 's/^title =.*/title = Palestine Movie App/' buildozer.spec
           sed -i 's/^package.name =.*/package.name = palestinemovie/' buildozer.spec
           sed -i 's/^requirements =.*/requirements = python3,kivy,requests,pillow/' buildozer.spec
+          sed -i 's/^# android.accept_sdk_license =.*/android.accept_sdk_license = True/' buildozer.spec
           sed -i 's/^#android.permissions =.*/android.permissions = INTERNET,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE/' buildozer.spec
         fi
 
     - name: Run App Engine to Verify Code
       run: |
-        # التأكد من أن ملف البايثون الخاص بك يجلب روابط البث بدون أخطاء قبل البناء
         python3 generator_final.py
 
     - name: Build Android APK with Buildozer
       run: |
-        # إطلاق المصنع لصناعة ملف الأندرويد الحقيقي
-        buildozer android debug
+        # تشغيل البناء مع تفعيل الموافقة على الرخص ضمن بيئة صامتة
+        yes | buildozer android debug
 
     - name: Upload Real Android APK
       uses: actions/upload-artifact@v4
