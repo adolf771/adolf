@@ -5,8 +5,10 @@ import json
 import time
 
 # ================== إعدادات جلب البيانات ==================
-OMDB_API_KEY = "98f8d59a"
-OMDB_BASE_URL = "http://www.omdbapi.com/"
+TMDB_API_KEY = "af9a9f29019a8416529a60c07110347d"
+TMDB_BASE_URL = "https://api.themoviedb.org/3"
+TMDB_IMG_BASE = "https://image.tmdb.org/t/p/w500"
+
 JIKAN_BASE_URL = "https://api.jikan.moe/v4"
 JIKAN_PAGES = 20   # 20 صفحة * ~25 = حوالي 500 أنمي
 
@@ -22,16 +24,112 @@ SERIES_IMDB_IDS = [
     "tt0185906", "tt2306299", "tt4574334", "tt0417299",
 ]
 
+# ================== روابط الفيديو الحقيقية (المرخّصة) ==================
+# يقرأ السكربت هذا الملف تلقائياً إذا كان موجوداً بنفس مجلد السكربت.
+# الشكل المطلوب داخل video_links.json:
+#   - للأفلام: المفتاح = IMDb ID، القيمة = رابط الفيديو (نص واحد)
+#   - للمسلسلات: المفتاح = IMDb ID، القيمة = قائمة حلقات، كل حلقة فيها number و url
+# أي عمل مش موجود بالملف رح ياخد فيديو تجريبي (demo) تلقائياً بدون ما يكسر التطبيق.
+VIDEO_LINKS_FILE = "video_links.json"
 
-def fetch_omdb_item(imdb_id):
+
+def load_video_links():
+    if not os.path.exists(VIDEO_LINKS_FILE):
+        print(f"ℹ️ ما في ملف {VIDEO_LINKS_FILE} بجانب السكربت — رح تستخدم كل الأعمال فيديو تجريبي مؤقتاً.")
+        return {}
     try:
-        params = {"i": imdb_id, "apikey": OMDB_API_KEY}
-        r = requests.get(OMDB_BASE_URL, params=params, timeout=10)
-        data = r.json()
-        return data if data.get("Response") == "True" else None
+        with open(VIDEO_LINKS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
     except Exception as e:
-        print(f"⚠️ خطأ بجلب {imdb_id}: {e}")
+        print(f"⚠️ خطأ بقراءة {VIDEO_LINKS_FILE}: {e}")
+        return {}
+
+
+VIDEO_LINKS = load_video_links()
+
+
+def kt_str(s):
+    return json.dumps(s, ensure_ascii=False)
+
+
+def build_real_movie_episodes_kt(url):
+    server = f'StreamServer({kt_str("🎬 سيرفر مباشر")}, {kt_str("HD")}, {kt_str(url)}, {kt_str("غير معروف")})'
+    return f'listOf(Episode(1, {kt_str("مشاهدة الفيلم كاملاً بأعلى جودة")}, listOf({server})))'
+
+
+def build_real_series_episodes_kt(episodes_list):
+    eps_kt = []
+    for e in episodes_list:
+        num = e.get("number", 1)
+        url = e.get("url", "")
+        title = f"الحلقة {num} - كاملة ومترجمة"
+        server = f'StreamServer({kt_str("🎬 سيرفر مباشر")}, {kt_str("HD")}, {kt_str(url)}, {kt_str("غير معروف")})'
+        eps_kt.append(f'Episode({num}, {kt_str(title)}, listOf({server}))')
+    return "listOf(\n                " + ",\n                ".join(eps_kt) + "\n            )"
+
+
+def format_runtime(minutes):
+    try:
+        minutes = int(minutes)
+        if minutes <= 0:
+            return "2h 00m"
+        h = minutes // 60
+        m = minutes % 60
+        return f"{h}h {m:02d}m" if h else f"{m}m"
+    except (ValueError, TypeError):
+        return "2h 00m"
+
+
+def fetch_tmdb_find(imdb_id):
+    """يحدد نوع العمل (فيلم/مسلسل) ويرجع معرّف TMDb المرتبط بمعرف IMDb."""
+    try:
+        url = f"{TMDB_BASE_URL}/find/{imdb_id}"
+        params = {"api_key": TMDB_API_KEY, "external_source": "imdb_id"}
+        r = requests.get(url, params=params, timeout=10)
+        data = r.json()
+        if data.get("movie_results"):
+            return "movie", data["movie_results"][0]["id"]
+        elif data.get("tv_results"):
+            return "tv", data["tv_results"][0]["id"]
+        return None, None
+    except Exception as e:
+        print(f"⚠️ خطأ بجلب {imdb_id} من TMDb (find): {e}")
+        return None, None
+
+
+def fetch_tmdb_details(media_type, tmdb_id):
+    """يجيب التفاصيل الكاملة (عربي أولاً، وإذا ناقص الوصف يرجع للإنجليزي)."""
+    try:
+        url = f"{TMDB_BASE_URL}/{media_type}/{tmdb_id}"
+        params = {"api_key": TMDB_API_KEY, "language": "ar"}
+        r = requests.get(url, params=params, timeout=10)
+        data = r.json()
+
+        if not data.get("overview"):
+            params["language"] = "en-US"
+            r2 = requests.get(url, params=params, timeout=10)
+            data_en = r2.json()
+            data["overview"] = data_en.get("overview", "")
+            if not data.get("title") and data_en.get("title"):
+                data["title"] = data_en.get("title")
+            if not data.get("name") and data_en.get("name"):
+                data["name"] = data_en.get("name")
+
+        return data
+    except Exception as e:
+        print(f"⚠️ خطأ بجلب تفاصيل {tmdb_id} ({media_type}): {e}")
         return None
+
+
+def fetch_tmdb_item(imdb_id):
+    """يرجع (media_type, details_dict) أو (None, None) إذا فشل."""
+    media_type, tmdb_id = fetch_tmdb_find(imdb_id)
+    if not tmdb_id:
+        return None, None
+    details = fetch_tmdb_details(media_type, tmdb_id)
+    if not details:
+        return None, None
+    return media_type, details
 
 
 def fetch_jikan_anime(max_pages=JIKAN_PAGES):
@@ -53,21 +151,24 @@ def fetch_jikan_anime(max_pages=JIKAN_PAGES):
     return all_results
 
 
-def build_movie_kt(item):
-    id_val = f"m_{item.get('imdbID', 'x').replace('tt', '')}"
-    title = item.get("Title", "بدون عنوان")
-    desc = item.get("Plot", "لا يوجد وصف متوفر.")
-    if desc == "N/A":
-        desc = "لا يوجد وصف متوفر."
-    poster = item.get("Poster", "")
-    if poster == "N/A":
-        poster = ""
+def build_movie_kt(item, imdb_id=None):
+    id_val = f"m_{item.get('id', 'x')}"
+    title = item.get("title") or "بدون عنوان"
+    desc = item.get("overview") or "لا يوجد وصف متوفر."
+    poster_path = item.get("poster_path")
+    poster = f"{TMDB_IMG_BASE}{poster_path}" if poster_path else ""
     try:
-        rating = float(item.get("imdbRating", "0")) if item.get("imdbRating") != "N/A" else 0.0
-    except ValueError:
+        rating = round(float(item.get("vote_average", 0) or 0), 1)
+    except (ValueError, TypeError):
         rating = 0.0
-    year = (item.get("Year", "0000") or "0000")[:4]
-    runtime = item.get("Runtime", "2h 00m")
+    year = (item.get("release_date") or "0000")[:4] or "0000"
+    runtime = format_runtime(item.get("runtime"))
+
+    real_url = VIDEO_LINKS.get(imdb_id) if imdb_id else None
+    if isinstance(real_url, str) and real_url.strip():
+        episodes_kt = build_real_movie_episodes_kt(real_url.strip())
+    else:
+        episodes_kt = f'movieEp("{runtime}")'
 
     return (
         '        MediaItem(\n'
@@ -75,30 +176,33 @@ def build_movie_kt(item):
         f'            {json.dumps(desc, ensure_ascii=False)},\n'
         f'            "{poster}",\n'
         f'            "{poster}",\n'
-        f'            {rating}, "{year}", "movie", "أفلام رائجة 🎬", movieEp("{runtime}")\n'
+        f'            {rating}, "{year}", "movie", "أفلام رائجة 🎬", {episodes_kt}\n'
         '        ),'
     )
 
 
-def build_series_kt(item):
-    id_val = f"s_{item.get('imdbID', 'x').replace('tt', '')}"
-    title = item.get("Title", "بدون عنوان")
-    desc = item.get("Plot", "لا يوجد وصف متوفر.")
-    if desc == "N/A":
-        desc = "لا يوجد وصف متوفر."
-    poster = item.get("Poster", "")
-    if poster == "N/A":
-        poster = ""
+def build_series_kt(item, imdb_id=None):
+    id_val = f"s_{item.get('id', 'x')}"
+    title = item.get("name") or "بدون عنوان"
+    desc = item.get("overview") or "لا يوجد وصف متوفر."
+    poster_path = item.get("poster_path")
+    poster = f"{TMDB_IMG_BASE}{poster_path}" if poster_path else ""
     try:
-        rating = float(item.get("imdbRating", "0")) if item.get("imdbRating") != "N/A" else 0.0
-    except ValueError:
+        rating = round(float(item.get("vote_average", 0) or 0), 1)
+    except (ValueError, TypeError):
         rating = 0.0
-    year = (item.get("Year", "0000") or "0000")[:4]
+    year = (item.get("first_air_date") or "0000")[:4] or "0000"
     try:
-        total_seasons = int(item.get("totalSeasons", "1"))
+        total_seasons = int(item.get("number_of_seasons", 1) or 1)
     except (ValueError, TypeError):
         total_seasons = 1
     ep_count = max(6, min(total_seasons * 8, 24))
+
+    real_eps = VIDEO_LINKS.get(imdb_id) if imdb_id else None
+    if isinstance(real_eps, list) and len(real_eps) > 0:
+        episodes_kt = build_real_series_episodes_kt(real_eps)
+    else:
+        episodes_kt = f'generateEpisodes({ep_count}, "50m")'
 
     return (
         '        MediaItem(\n'
@@ -106,7 +210,7 @@ def build_series_kt(item):
         f'            {json.dumps(desc, ensure_ascii=False)},\n'
         f'            "{poster}",\n'
         f'            "{poster}",\n'
-        f'            {rating}, "{year}", "series", "مسلسلات مشاهدة الآن 📺", generateEpisodes({ep_count}, "50m")\n'
+        f'            {rating}, "{year}", "series", "مسلسلات مشاهدة الآن 📺", {episodes_kt}\n'
         '        ),'
     )
 
@@ -137,20 +241,26 @@ def build_anime_kt(item):
 
 
 def build_media_list_kt():
-    print("🔄 جاري جلب الأفلام من OMDb...")
+    print("🔄 جاري جلب الأفلام من TMDb...")
     movie_items = []
     for imdb_id in MOVIE_IMDB_IDS:
-        data = fetch_omdb_item(imdb_id)
-        if data:
-            movie_items.append(build_movie_kt(data))
+        media_type, data = fetch_tmdb_item(imdb_id)
+        if data and media_type == "movie":
+            movie_items.append(build_movie_kt(data, imdb_id))
+        elif data:
+            # لو TMDb صنّفه مسلسل رغم إنه بلست الأفلام
+            movie_items.append(build_series_kt(data, imdb_id))
         time.sleep(0.2)
 
-    print("🔄 جاري جلب المسلسلات من OMDb...")
+    print("🔄 جاري جلب المسلسلات من TMDb...")
     series_items = []
     for imdb_id in SERIES_IMDB_IDS:
-        data = fetch_omdb_item(imdb_id)
-        if data:
-            series_items.append(build_series_kt(data))
+        media_type, data = fetch_tmdb_item(imdb_id)
+        if data and media_type == "tv":
+            series_items.append(build_series_kt(data, imdb_id))
+        elif data:
+            # لو TMDb صنّفه فيلم رغم إنه بلست المسلسلات
+            series_items.append(build_movie_kt(data, imdb_id))
         time.sleep(0.2)
 
     print("🔄 جاري جلب الأنمي من Jikan (بدون مفتاح)...")
@@ -190,7 +300,7 @@ object MediaRepository {
         Episode(1, "مشاهدة الفيلم كاملاً بأعلى جودة", buildServers(1), duration)
     )
 
-    // --- تم جلب البيانات تلقائياً بواسطة generator_final.py (OMDb + Jikan) ---
+    // --- تم جلب البيانات تلقائياً بواسطة generator_final.py (TMDb + Jikan) ---
     val mediaList = mutableStateListOf<MediaItem>(
 """
 
@@ -995,9 +1105,6 @@ for path, content in files.items():
     print(f"Generated: {path}")
 
 # ================== معالجة وتوليد أيقونة التطبيق ==================
-# ملاحظة: على GitHub Actions ما في صورة مرفوعة يدوياً متل Colab، فلازم نضمن
-# إنه دايماً في أيقونة (ولو افتراضية) وإلا البناء بيفشل لأن AndroidManifest
-# بيرجع لـ @mipmap/ic_launcher.
 png_candidates = [f for f in os.listdir(".") if f.lower().endswith(".png") and not f.startswith(".")]
 if png_candidates:
     icon_source = png_candidates[0]
