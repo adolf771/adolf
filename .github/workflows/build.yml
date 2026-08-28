@@ -1,4 +1,4 @@
-name: Build Palestine Movie App
+name: Build Palestine Movie Android APK
 
 on:
   push:
@@ -7,39 +7,48 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     steps:
     - name: Checkout Repository
       uses: actions/checkout@v4
 
-    - name: Set up JDK 17
-      uses: actions/setup-java@v4
-      with:
-        java-version: '17'
-        distribution: 'temurin'
-
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.x'
+        python-version: '3.10'
 
-    - name: Install Dependencies
-      run: pip install pillow requests
+    - name: Install Buildozer and Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libssl-dev libffi-dev search python3-dev
+        pip install --upgrade pip
+        pip install buildozer cython requests pillow
 
-    - name: Generate Code and Live Streams
-      run: python3 generator_final.py
+    - name: Generate Buildozer Specification
+      run: |
+        # توليد ملف إعدادات المصنع التلقائي للتطبيق إذا لم يكن موجوداً
+        if [ ! -f "buildozer.spec" ]; then
+          buildozer init
+          # تعديل الإعدادات لتدعم مكتبات الإنترنت والصور التي يحتاجها تطبيقك
+          sed -i 's/^title =.*/title = Palestine Movie App/' buildozer.spec
+          sed -i 's/^package.name =.*/package.name = palestinemovie/' buildozer.spec
+          sed -i 's/^requirements =.*/requirements = python3,kivy,requests,pillow/' buildozer.spec
+          sed -i 's/^#android.permissions =.*/android.permissions = INTERNET,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE/' buildozer.spec
+        fi
 
-    - name: Setup Gradle 8.6
-      uses: gradle/actions/setup-gradle@v3
-      with:
-        gradle-version: '8.6'
+    - name: Run App Engine to Verify Code
+      run: |
+        # التأكد من أن ملف البايثون الخاص بك يجلب روابط البث بدون أخطاء قبل البناء
+        python3 generator_final.py
 
-    - name: Build Palestine Movie APK
-      run: ./gradlew assembleDebug --no-daemon || gradle assembleDebug --no-daemon
+    - name: Build Android APK with Buildozer
+      run: |
+        # إطلاق المصنع لصناعة ملف الأندرويد الحقيقي
+        buildozer android debug
 
-    - name: Upload APK Artifact
+    - name: Upload Real Android APK
       uses: actions/upload-artifact@v4
       with:
-        name: Palestine-Movie-App
-        path: app/build/outputs/apk/debug/*.apk
+        name: Palestine-Movie-Android-App
+        path: .buildozer/android/platform/build-armeabi-v7a_arm64-v8a/dists/palestinemovie/build/outputs/apk/debug/*.apk
