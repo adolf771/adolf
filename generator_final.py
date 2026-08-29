@@ -210,6 +210,6 @@ def main(page: ft.Page):
             arabic_and_custom = [i for i in media_data if "العربية" in i["category"] or "الحصرية" in i["category"]]
             for item in arabic_and_custom:
                 main_content_area.controls.append(
-                    ft.ListTile(
+                    ft.ListTile) 
                         leading=ft.Image(src=item["poster"], width=40, height=60, fit=ft.ImageFit.COVER, border_radius=5),
                         title=ft.Text(item["title"]),
