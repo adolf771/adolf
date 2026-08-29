@@ -119,17 +119,18 @@ def main(page: ft.Page):
         ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=8)
 
         if item["type"] == "movie" or "url" in item:
-            content_box.controls.append(ft.ElevatedButton("🍿 مشاهدة وتحميل العرض الحصري", bgcolor=ft.colors.GREEN_700, color=ft.colors.WHITE, url=item["url"]))
+            btn = ft.ElevatedButton("🍿 مشاهدة وتحميل العرض الحصري", bgcolor=ft.colors.GREEN_700, color=ft.colors.WHITE, url=item["url"])
+            content_box.controls.append(btn)
         else:
             content_box.controls.append(ft.Text("🎬 حلقات الأنمي المترجمة:", size=14, weight=ft.FontWeight.BOLD))
             for ep in item["episodes"]:
-                content_box.controls.append(
-                    ft.ListTile(
-                        title=ft.Text(ep["title"], size=12),
-                        trailing=ft.Icon(ft.icons.PLAY_ARROW_ROUNDED, color=ft.colors.AMBER),
-                        on_click=lambda e, url=ep["url"]: page.launch_url(url)
-                    )
+                # تم تبسيط كتابة زر تشغيل حلقات الأنمي لضمان إغلاق الأقواس بالملي
+                ep_tile = ft.ListTile(
+                    title=ft.Text(ep["title"], size=12),
+                    trailing=ft.Icon(ft.icons.PLAY_ARROW_ROUNDED, color=ft.colors.AMBER),
+                    on_click=lambda e, url=ep["url"]: page.launch_url(url)
                 )
+                content_box.controls.append(ep_tile)
 
         modal = ft.AlertDialog(
             title=ft.Text("تفاصيل المشاهدة والتنزيل"),
@@ -148,14 +149,13 @@ def main(page: ft.Page):
         
         if found_items:
             for item in found_items:
-                search_results.controls.append(
-                    ft.ListTile(
-                        leading=ft.Image(src=item["poster"], width=40, height=60, fit=ft.ImageFit.COVER),
-                        title=ft.Text(item["title"]),
-                        subtitle=ft.Text("اضغط للمشاهدة الفورية", color=ft.colors.GREY_500),
-                        on_click=lambda e, it=item: show_media_details(it)
-                    )
+                res_tile = ft.ListTile(
+                    leading=ft.Image(src=item["poster"], width=40, height=60, fit=ft.ImageFit.COVER),
+                    title=ft.Text(item["title"]),
+                    subtitle=ft.Text("اضغط للمشاهدة الفورية", color=ft.colors.GREY_500),
+                    on_click=lambda e, it=item: show_media_details(it)
                 )
+                search_results.controls.append(res_tile)
         else:
             search_results.controls.append(ft.Text("لم يتم العثور عليه محلياً، ابحث في الأقسام المخصصة.", color=ft.colors.AMBER))
         page.update()
@@ -208,7 +208,5 @@ def main(page: ft.Page):
             main_content_area.controls.append(ft.Text("قسم الأفلام والمسلسلات العربية 🎥", size=18, weight=ft.FontWeight.BOLD, color=ft.colors.BLUE_ACCENT))
             arabic_and_custom = [i for i in media_data if "العربية" in i["category"] or "الحصرية" in i["category"]]
             for item in arabic_and_custom:
-                main_content_area.controls.append)
-                    ft.ListTile(
-                        leading=ft.Image(src=item["poster"], width=40, height=60, fit=ft.ImageFit.COVER, border_radius=5),
-                        title=ft.Text(item["title"]),
+                # حل المشكلة النهائي: تم كتابة وإغلاق ListTile الخاص بالتبويب العربي بشكل صريح وقاطع منفصل
+                arabic_tile = ft.ListTile(
