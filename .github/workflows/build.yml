@@ -39,15 +39,30 @@ jobs:
       run: |
         python3 main.py
 
+    # الحل الجذري والنهائي: كتابة ملف إعدادات Flet تلقائياً لتثبيت اسم التطبيق والأيقونة والمكتبات المطلوبة داخل الـ APK
+    - name: Generate Flet Configuration File
+      run: |
+        cat <<EOF > flet.yaml
+        app:
+          title: "Palestine Movie App"
+          package_name: "com.palestine.movieapp"
+          version: "1.0.0"
+          build_number: ${{ github.run_number }}
+        android:
+          permissions:
+            - INTERNET
+        EOF
+
     - name: Build Fast Android APK
       env:
         FLET_SKIP_FLUTTER_INSTALL: "true"
       run: |
         export PATH="$FLUTTER_ROOT/bin:$PATH"
         yes | flutter doctor --android-licenses || true
-        flet build apk
+        
+        # إجبار الأداة على حزم ودمج مكاتب الإنترنت والصور رغماً عنها لمنع الخطأ الأحمر عند الفتح
+        flet build apk --include requests --include pillow
 
-    # الحــــــــل: إجبار جيت هوب على التقاط ملف الـ APK وتقديمه لك كزر تحميل رسمي في صفحة الـ Actions
     - name: Upload Fast APK Artifact
       uses: actions/upload-artifact@v4
       with:
