@@ -41,5 +41,11 @@ jobs:
 
     - name: Build Fast Android APK
       run: |
-        # الحل القاطع: دمج حقن مسارات النظام وإطلاق البناء الصامت في أمر متصل واحد يمنع انفصال البيئة
-        export PATH="$FLUTTER_ROOT/bin:$PATH" && flutter doctor && flet build apk --no-interactive
+        # 1. إدخال مسار الفلاتر في بيئة النظام
+        export PATH="$FLUTTER_ROOT/bin:$PATH"
+        
+        # 2. الحــــــل النهائي: الموافقة الصامتة والتلقائية على كل رخص أندرويد لمنع الأسئلة اليدوية
+        yes | flutter doctor --android-licenses || true
+        
+        # 3. إطلاق بناء الـ APK النظيف بدون بارامترات زائدة تعترض عليها الأداة
+        flet build apk
