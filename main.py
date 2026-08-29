@@ -362,8 +362,10 @@ def main(page: ft.Page) -> None:
                 else None
             ),
             padding=ft.Padding(
-                horizontal=14,
-                vertical=11,
+                left=14,
+                right=14,
+                top=11,
+                bottom=11,
             ),
             on_click=lambda _event, section=label: (
                 render_section(section)
@@ -612,8 +614,10 @@ def main(page: ft.Page) -> None:
                 ft.Container(
                     expand=True,
                     padding=ft.Padding(
-                        horizontal=30,
-                        vertical=24,
+                        left=30,
+                        right=30,
+                        top=24,
+                        bottom=24,
                     ),
                     content=ft.Column(
                         expand=True,
