@@ -24,15 +24,16 @@ jobs:
       with:
         python-version: '3.10'
 
+    - name: Set up Flutter Environment
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.x'
+        channel: 'stable'
+
     - name: Install Fast Application Dependencies
       run: |
         pip install --upgrade pip
-        pip install flet requests pillow urllib3 certifi idna charset-normalizer
-
-    - name: Download Custom App Icon
-      run: |
-        # تحميل الأيقونة الزرقاء الفخمة وتسميتها icon.png ليقرأها المحرك تلقائياً
-        curl -L "https://top4top.io" -o icon.png
+        pip install flet requests pillow
 
     - name: Run App Engine to Verify Code
       run: |
@@ -40,11 +41,5 @@ jobs:
 
     - name: Build Fast Android APK
       run: |
-        # الحــــــــل: الإشارة للمجلد الحالي بالكامل عبر (.) وتحديد اسم ملف التشغيل بدقة
-        echo "y" | flet build apk . --main-script-name generator_final.py
-        
-    - name: Upload Real Android APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: Palestine-Movie-Fast-App
-        path: build/apk/*.apk
+        # التعديل النهائي: الإشارة للمجلد الحالي بالكامل عبر (.) وتحديد اسم ملف التشغيل بدقة
+        flet build apk . --main-script-name generator_final.py
