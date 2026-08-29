@@ -518,7 +518,7 @@ def main(page: ft.Page) -> None:
 
     sidebar = ft.Container(
         width=190,
-        padding=ft.padding.only(
+        padding=ft.Padding(
             left=18,
             right=18,
             top=24,
