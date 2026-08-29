@@ -41,5 +41,8 @@ jobs:
 
     - name: Build Fast Android APK
       run: |
-        # الحل القطعي: تمرير مسار الفلاتر الجاهز مباشرة للأداة لتبدأ البناء فورا بدون طرح أسئلة
-        flet build apk --flutter-path $FLUTTER_ROOT
+        # الحل الجذري: حقن مسار الفلاتر في نظام التشغيل العالمي لتراه أداة flet تلقائياً وتتخطى الأسئلة
+        export PATH="$FLUTTER_ROOT/bin:$PATH"
+        
+        # تشغيل البناء الصافي بدون أي إضافات تعترض عليها الأداة
+        flet build apk
