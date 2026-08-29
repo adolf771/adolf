@@ -361,7 +361,7 @@ def main(page: ft.Page) -> None:
                 if label == current_section
                 else None
             ),
-            padding=ft.Padding.(
+            padding=ft.Padding(
                 horizontal=14,
                 vertical=11,
             ),
@@ -611,7 +611,7 @@ def main(page: ft.Page) -> None:
                 ),
                 ft.Container(
                     expand=True,
-                    padding=ft.padding.symmetric(
+                    padding=ft.Padding(
                         horizontal=30,
                         vertical=24,
                     ),
