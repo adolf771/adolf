@@ -11,6 +11,11 @@ import flet as ft
 import requests
 from PIL import Image, ImageDraw
 
+try:
+    from app_config import TMDB_API_KEY as BUNDLED_TMDB_API_KEY
+except ImportError:
+    BUNDLED_TMDB_API_KEY = ""
+
 
 TMDB_BASE_URL = "https://api.themoviedb.org/3"
 TMDB_IMAGE_URL = "https://image.tmdb.org/t/p/w780"
@@ -92,7 +97,8 @@ def format_item(item: dict[str, Any], kind: str | None = None) -> dict[str, Any]
 
 class CinemaData:
     def __init__(self) -> None:
-        self.api_key = os.getenv("TMDB_API_KEY", "").strip()
+        # The APK receives app_config.py during CI; local/web runs can use an env var.
+        self.api_key = (os.getenv("TMDB_API_KEY", "").strip() or BUNDLED_TMDB_API_KEY.strip())
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": "Cinema-App/2.0"})
 
@@ -168,7 +174,7 @@ def main(page: ft.Page) -> None:
 
     def poster_card(item: dict[str, Any]) -> ft.Container:
         return ft.Container(
-            width=154,
+            width=168,
             bgcolor=SURFACE,
             border_radius=17,
             padding=7,
@@ -177,10 +183,10 @@ def main(page: ft.Page) -> None:
                 spacing=7,
                 controls=[
                     ft.Stack(
-                        width=140,
-                        height=190,
+                        width=154,
+                        height=212,
                         controls=[
-                            item_image(item, 140, 190),
+                            item_image(item, 154, 212),
                             ft.Container(
                                 alignment=ft.Alignment.TOP_LEFT,
                                 padding=ft.Padding.all(7),
@@ -197,6 +203,35 @@ def main(page: ft.Page) -> None:
                     ft.Text(str(item.get("subtitle", "")), color=MUTED, size=11, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS, text_align=ft.TextAlign.RIGHT),
                 ],
             ),
+        )
+
+    def category_chip(label: str, key: str | None = None, emoji: str = "") -> ft.Container:
+        is_active = (key is None and current_view == "home") or key == current_view
+        return ft.Container(
+            bgcolor=ACCENT if is_active else SURFACE,
+            border_radius=24,
+            padding=ft.Padding.symmetric(horizontal=18, vertical=10),
+            on_click=(lambda _event, category=key: open_category(category)) if key else (lambda _event: render_home()),
+            content=ft.Text(
+                f"{emoji}  {label}".strip(),
+                color=TEXT,
+                size=14,
+                weight=ft.FontWeight.BOLD if is_active else ft.FontWeight.NORMAL,
+                text_align=ft.TextAlign.CENTER,
+            ),
+        )
+
+    def category_tabs() -> ft.Row:
+        return ft.Row(
+            spacing=10,
+            scroll=ft.ScrollMode.AUTO,
+            controls=[
+                category_chip("الكل"),
+                category_chip("أنمي", "anime", "⚡"),
+                category_chip("مسلسلات", "series", "📺"),
+                category_chip("أفلام", "movies", "🎬"),
+                category_chip("كرتون", "cartoons", "🎨"),
+            ],
         )
 
     def open_details(item: dict[str, Any]) -> None:
@@ -260,7 +295,7 @@ def main(page: ft.Page) -> None:
         background = featured.get("backdrop") or featured.get("poster")
         source = f"{TMDB_IMAGE_URL}{background}" if background else f"data:image/png;base64,{placeholder_base64(str(featured.get('title', 'سينماي')))}"
         return ft.Container(
-            height=300,
+            height=350,
             border_radius=24,
             clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
             content=ft.Stack(
@@ -270,13 +305,14 @@ def main(page: ft.Page) -> None:
                     ft.Container(expand=True, bgcolor="#C407090D"),
                     ft.Container(
                         expand=True,
-                        padding=ft.Padding.only(left=20, right=20, top=30, bottom=22),
+                        padding=ft.Padding.only(left=20, right=20, top=28, bottom=24),
                         alignment=ft.Alignment.BOTTOM_RIGHT,
                         content=ft.Column(
                             alignment=ft.MainAxisAlignment.END,
                             horizontal_alignment=ft.CrossAxisAlignment.END,
                             spacing=9,
                             controls=[
+                                 ft.Text("Palestine Movie 🇵🇸", color=ACCENT, size=14, weight=ft.FontWeight.BOLD, text_align=ft.TextAlign.RIGHT),
                                 ft.Text(str(featured.get("title", "اكتشف عالمك القادم")), color=TEXT, size=26, weight=ft.FontWeight.BOLD, max_lines=2, text_align=ft.TextAlign.RIGHT),
                                 ft.Text(f"{featured.get('rating', '—')} ★  •  {featured.get('subtitle', 'أفلام وأنمي')}", color="#E4E7EC", size=14, text_align=ft.TextAlign.RIGHT),
                                 ft.FilledButton("شاهد الآن", icon=ft.Icons.PLAY_ARROW, on_click=lambda _event: open_details(featured), style=ft.ButtonStyle(bgcolor=ACCENT, color=TEXT)),
@@ -294,6 +330,7 @@ def main(page: ft.Page) -> None:
         content.controls.clear()
         content.controls.extend([
             hero(),
+            category_tabs(),
             category_section("الأكثر مشاهدة", "🔥", "movies"),
             category_section("أفضل المسلسلات", "📺", "series"),
             category_section("أفضل أنمي", "⚡", "anime"),
@@ -388,6 +425,23 @@ def main(page: ft.Page) -> None:
             ft.IconButton(icon=ft.Icons.REFRESH, tooltip="تحديث المحتوى", icon_color=MUTED, on_click=load_from_tmdb),
             ft.Container(expand=True, content=search_field),
             ft.Text("سينماي", color=ACCENT, size=24, weight=ft.FontWeight.BOLD),
+        ],
+    )
+
+    page.navigation_bar = ft.NavigationBar(
+        bgcolor="#21151D",
+        indicator_color=ACCENT_DARK,
+        selected_index=0,
+        on_change=lambda event: (
+            render_home()
+            if event.control.selected_index == 0
+            else show_message("القسم قيد التجهيز — ستتم إضافة هذه الصفحة قريباً.")
+        ),
+        destinations=[
+            ft.NavigationBarDestination(icon=ft.Icons.HOME_OUTLINED, selected_icon=ft.Icons.HOME, label="الرئيسية"),
+            ft.NavigationBarDestination(icon=ft.Icons.SEARCH, label="بحث"),
+            ft.NavigationBarDestination(icon=ft.Icons.DOWNLOAD_OUTLINED, label="التنزيلات"),
+            ft.NavigationBarDestination(icon=ft.Icons.FAVORITE_BORDER, label="المفضلة"),
         ],
     )
 
