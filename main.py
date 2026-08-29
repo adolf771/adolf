@@ -191,7 +191,7 @@ def poster_card(item: dict[str, Any]) -> ft.Container:
             src=f"{TMDB_IMAGE_URL}{poster_path}",
             width=158,
             height=214,
-            fit=ft.ImageFit.COVER,
+            fit=ft.BoxFit.COVER,
             border_radius=10,
         )
     else:
@@ -199,7 +199,7 @@ def poster_card(item: dict[str, Any]) -> ft.Container:
             src_base64=placeholder_base64(title),
             width=158,
             height=214,
-            fit=ft.ImageFit.COVER,
+            fit=ft.BoxFit.COVER,
             border_radius=10,
         )
 
@@ -216,7 +216,7 @@ def poster_card(item: dict[str, Any]) -> ft.Container:
                     controls=[
                         poster,
                         ft.Container(
-                            alignment=ft.alignment.bottom_left,
+                            alignment=ft.Alignment.BOTTOM_LEFT,
                             padding=10,
                             content=ft.Text(
                                 f"★ {item['rating']}",
@@ -311,8 +311,8 @@ def main(page: ft.Page) -> None:
             border_radius=18,
             padding=28,
             gradient=ft.LinearGradient(
-                begin=ft.alignment.top_right,
-                end=ft.alignment.bottom_left,
+                begin=ft.Alignment.TOP_RIGHT,
+                end=ft.Alignment.BOTTOM_LEFT,
                 colors=[
                     "#3B1016",
                     "#1A0C0E",
@@ -361,7 +361,7 @@ def main(page: ft.Page) -> None:
                 if label == current_section
                 else None
             ),
-            padding=ft.padding.symmetric(
+            padding=ft.Padding.symmetric(
                 horizontal=14,
                 vertical=11,
             ),
@@ -518,7 +518,7 @@ def main(page: ft.Page) -> None:
 
     sidebar = ft.Container(
         width=190,
-        padding=15
+        padding=ft.Padding.only(
             left=18,
             right=18,
             top=24,
@@ -611,7 +611,7 @@ def main(page: ft.Page) -> None:
                 ),
                 ft.Container(
                     expand=True,
-                    padding=ft.padding.symmetric(
+                    padding=ft.Padding.symmetric(
                         horizontal=30,
                         vertical=24,
                     ),
