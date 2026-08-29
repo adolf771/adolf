@@ -66,7 +66,7 @@ jobs:
           from pathlib import Path
           from PIL import Image
 
-          source = Path(sys.argv)
+          source = Path(sys.argv[1])
           output = Path("assets/icon.png")
 
           image = Image.open(source).convert("RGBA")
