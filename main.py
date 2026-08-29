@@ -216,7 +216,7 @@ def poster_card(item: dict[str, Any]) -> ft.Container:
                     controls=[
                         poster,
                         ft.Container(
-                            alignment=ft.alignment.bottom_left,
+                            alignment=ft.Alignment(-1, 1),
                             padding=10,
                             content=ft.Text(
                                 f"★ {item['rating']}",
@@ -311,8 +311,8 @@ def main(page: ft.Page) -> None:
             border_radius=18,
             padding=28,
             gradient=ft.LinearGradient(
-                begin=ft.alignment.top_right,
-                end=ft.alignment.bottom_left,
+                begin=ft.Alignment(1, -1),
+                end=ft.Alignment(-1, 1),
                 colors=[
                     "#3B1016",
                     "#1A0C0E",
