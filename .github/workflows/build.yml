@@ -40,10 +40,7 @@ jobs:
         python3 main.py
 
     - name: Build Fast Android APK
-      env:
-        # تفعيل نمط البناء الصامت للمطورين في جيت هوب لمنع طرح أي أسئلة يدوية
-        CI: "true"
-        FLET_CI: "true"
       run: |
-        # الأمر القياسي النظيف والنقي بدون أي حِجج زائدة تعترض عليها الأداة
-        flet build apk
+        # الحل القاتل: ربط مسار الفلاتر تلقائياً بنظام Flet وإدخال الموافقة بشكل نصي آمن يمنع الـ EOFError
+        flet config flutter_path $FLUTTER_ROOT
+        echo "y" | flet build apk
