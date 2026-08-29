@@ -42,11 +42,11 @@ def fetch_tmdb_item(imdb_id):
         url = f"{TMDB_BASE_URL}/find/{imdb_id}"
         r = requests.get(url, params={"api_key": TMDB_API_KEY, "external_source": "imdb_id"}, timeout=4).json()
         if r.get("movie_results"):
-            tmdb_id = r["movie_results"]["id"]
+            tmdb_id = r["movie_results"][0]["id"]
             details = requests.get(f"{TMDB_BASE_URL}/movie/{tmdb_id}", params={"api_key": TMDB_API_KEY, "language": "ar"}, timeout=4).json()
             return "movie", details
         elif r.get("tv_results"):
-            tmdb_id = r["tv_results"]["id"]
+            tmdb_id = r["tv_results"][0]["id"]
             details = requests.get(f"{TMDB_BASE_URL}/tv/{tmdb_id}", params={"api_key": TMDB_API_KEY, "language": "ar"}, timeout=4).json()
             return "series", details
     except Exception:
