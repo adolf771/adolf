@@ -47,6 +47,65 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
 
+      - name: Prepare App Icon From Any Image
+        shell: bash
+        run: |
+          mkdir -p assets
+
+          if [ -f "assets/icon.png" ]; then
+            echo "Using existing assets/icon.png"
+          else
+            ICON_SOURCE="$(
+              find . -type f \
+                \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" \
+                   -o -iname "*.webp" \) \
+                ! -path "./.git/*" \
+                ! -path "./build/*" \
+                ! -path "./assets/*" \
+                | sort | head -n 1
+            )"
+
+            if [ -z "$ICON_SOURCE" ]; then
+              echo "No image found for the app icon."
+              exit 1
+            fi
+
+            echo "Using image: $ICON_SOURCE"
+
+            python - "$ICON_SOURCE" <<'PY'
+          import sys
+          from pathlib import Path
+
+          from PIL import Image
+
+          source = Path(sys.argv[1])
+          output = Path("assets/icon.png")
+
+          image = Image.open(source).convert("RGBA")
+          width, height = image.size
+          side = min(width, height)
+          left = (width - side) // 2
+          top = (height - side) // 2
+
+          image = image.crop(
+              (left, top, left + side, top + side)
+          )
+
+          image = image.resize(
+              (1024, 1024),
+              Image.Resampling.LANCZOS,
+          )
+
+          image.save(
+              output,
+              format="PNG",
+              optimize=True,
+          )
+
+          print(f"Created {output} from {source}")
+          PY
+          fi
+
       - name: Verify Python Syntax
         run: |
           python -m py_compile main.py
