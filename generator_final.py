@@ -13,11 +13,10 @@ CONSUMET_BASE_URL = "https://consumet.org"
 MOVIE_FOREIGN_IDS = ["tt0468569", "tt1375666", "tt0137523", "tt0110912"]
 MOVIE_ARABIC_IDS  = ["tt14227702", "tt11651812", "tt14671408"]
 
-# 🌟 [ميزتك الجديدة]: هنا تضع أي فيلم أو مسلسل لا يمتلك سيرفر تلقائي!
-# فقط ضع الـ IMDB ID الخاص به ومعه رابط الفيديو المباشر الذي تريده (MP4 أو M3U8 أو Embed)
+# 🌟 قائمة السيرفرات اليدوية الخاصة بك
 CUSTOM_MANUAL_LINKS = {
-    "tt11198330": "https://example.com", # مثال لمسلسل هاوس اوف دراقون
-    "tt9999999": "https://server2.com" # مثال لفيلم عربي مخصص
+    "tt11198330": "https://example.com",
+    "tt9999999": "https://server2.com"
 }
 
 # ================== محركات البحث وجلب الروابط الحية ==================
@@ -56,14 +55,11 @@ def fetch_tmdb_item(imdb_id):
 
 def load_all_media_data():
     media_list = []
-    
-    # دمج القوائم التلقائية مع القائمة اليدوية الجديدة الخاصة بك
     all_ids = MOVIE_FOREIGN_IDS + MOVIE_ARABIC_IDS + list(CUSTOM_MANUAL_LINKS.keys())
     
     for imdb_id in all_ids:
         m_type, data = fetch_tmdb_item(imdb_id)
         if data:
-            # 🛡️ الفحص الذكي: إذا كان للفيلم رابط يدوي تضعه أنت، استخدمه فوراً، وإلا استخدم السيرفر التلقائي المعتاد
             if imdb_id in CUSTOM_MANUAL_LINKS:
                 v_url = CUSTOM_MANUAL_LINKS[imdb_id]
                 cat_name = "إضافات حصرية وخاصة 🔥"
@@ -72,9 +68,13 @@ def load_all_media_data():
                 cat_name = "أفضل الأفلام العربية 🎥" if imdb_id in MOVIE_ARABIC_IDS else "أفضل الأفلام الأجنبية 🎬"
                 
             media_list.append({
-                "id": f"m_{data['id']}", "title": data.get('title') or data.get('name', 'عرض ميديا'), 
-                "desc": data.get('overview', 'لا يوجد وصف متوفر حالياً لهذا العرض.'), "poster": f"{TMDB_IMG_BASE}{data.get('poster_path')}",
-                "category": cat_name, "type": "movie", "url": v_url
+                "id": f"m_{data['id']}", 
+                "title": data.get('title') or data.get('name', 'عرض ميديا'), 
+                "desc": data.get('overview', 'لا يوجد وصف متوفر حالياً لهذا العرض.'), 
+                "poster": f"{TMDB_IMG_BASE}{data.get('poster_path')}",
+                "category": cat_name, 
+                "type": "movie", 
+                "url": v_url
             })
             
     try:
@@ -82,9 +82,13 @@ def load_all_media_data():
         for item in anime_res:
             title = item.get("title", "أنمي")
             media_list.append({
-                "id": f"a_{item['mal_id']}", "title": title, 
-                "desc": item.get('synopsis', 'لا يوجد وصف'), "poster": item.get('images', {}).get('jpg', {}).get('large_image_url', ''),
-                "category": "أفضل أنمي هذا الأسبوع ⚡", "type": "anime", "episodes": fetch_live_anime_links(title, 12)
+                "id": f"a_{item['mal_id']}", 
+                "title": title, 
+                "desc": item.get('synopsis', 'لا يوجد وصف'), 
+                "poster": item.get('images', {}).get('jpg', {}).get('large_image_url', ''),
+                "category": "أفضل أنمي هذا الأسبوع ⚡", 
+                "type": "anime", 
+                "episodes": fetch_live_anime_links(title, 12)
             })
     except Exception:
         pass
@@ -202,5 +206,10 @@ def main(page: ft.Page):
         if idx == 0:
             render_home_view()
         elif idx == 1:
-            main_content_area.controls.append(ft.Text("قسم الأفلام والمسلسلات العربية 🎥", size=20, weight=ft.FontWeight.BOLD))
-            for item in [i for i in media_data if "العربية" in i["category"] or "الحصرية" in i["category"]]:
+            main_content_area.controls.append(ft.Text("قسم الأفلام والمسلسلات العربية 🎥", size=18, weight=ft.FontWeight.BOLD, color=ft.colors.BLUE_ACCENT))
+            arabic_and_custom = [i for i in media_data if "العربية" in i["category"] or "الحصرية" in i["category"]]
+            for item in arabic_and_custom:
+                main_content_area.controls.append(
+                    ft.ListTile(
+                        leading=ft.Image(src=item["poster"], width=40, height=60, fit=ft.ImageFit.COVER, border_radius=5),
+                        title=ft.Text(item["title"]),
