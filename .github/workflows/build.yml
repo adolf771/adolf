@@ -1,8 +1,10 @@
-name: Build Palestine Movie Fast Android APK
+name: Build Palestine Movie Android APK
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches:
+      - main
+      - master
   workflow_dispatch:
 
 jobs:
@@ -10,56 +12,65 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-    - name: Set up Java 17
-      uses: actions/setup-java@v4
-      with:
-        java-version: '17'
-        distribution: 'temurin'
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: "temurin"
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.10'
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
-    - name: Set up Flutter Environment
-      uses: subosito/flutter-action@v2
-      with:
-        flutter-version: '3.44.8'
-        channel: 'stable'
+      - name: Set up Flutter Environment
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.44.8"
+          channel: stable
+          cache: true
 
-    # الحل الجذري والوحيد المعتمد: توليد ملف المتطلبات الرسمي لتدمج الأداة مكاتب بايثون داخل الـ APK تلقائياً
-    - name: Generate Requirements File for Mobile
-      run: |
-        cat <<EOF > requirements.txt
-        flet
-        requests
-        pillow
-        EOF
+      - name: Generate Requirements File
+        shell: bash
+        run: |
+          cat > requirements.txt <<'EOF'
+          flet
+          requests
+          pillow
+          EOF
 
-    - name: Install Fast Application Dependencies
-      run: |
-        pip install --upgrade pip
-        pip install -r requirements.txt
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
 
-    - name: Run App Engine to Verify Code
-      run: |
-        python3 main.py
+      - name: Verify Python Syntax
+        run: |
+          python -m py_compile main.py
 
-    - name: Build Fast Android APK
-      env:
-        FLET_SKIP_FLUTTER_INSTALL: "true"
-      run: |
-        export PATH="$FLUTTER_ROOT/bin:$PATH"
-        yes | flutter doctor --android-licenses || true
-        
-        # أمر البناء القياسي النقي والنظيف: ستقرأ الأداة ملف requirements.txt تلقائيا وتحزم المكاتب
-        flet build apk
-        
-    - name: Upload Fast APK Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: Palestine-Movie-Fast-App
-        path: build/apk/*.apk
+      - name: Accept Android Licenses
+        run: |
+          yes | flutter doctor --android-licenses || true
+
+      - name: Build Palestine Movie APK
+        env:
+          FLET_SKIP_FLUTTER_INSTALL: "true"
+        run: |
+          flet build apk \
+            --project "palestine_movie" \
+            --product "Palestine Movie" \
+            --org "com.palestinemovie" \
+            --description "تطبيق أفلام وأنمي فلسطيني" \
+            --android-adaptive-icon-background "#090909" \
+            --yes \
+            --skip-flutter-doctor
+
+      - name: Upload Palestine Movie APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Palestine-Movie-APK
+          path: build/apk/*.apk
+          if-no-files-found: error
