@@ -51,32 +51,19 @@ jobs:
         shell: bash
         run: |
           mkdir -p assets
-
           if [ -f "assets/icon.png" ]; then
             echo "Using existing assets/icon.png"
           else
-            ICON_SOURCE="$(
-              find . -type f \
-                \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" \
-                   -o -iname "*.webp" \) \
-                ! -path "./.git/*" \
-                ! -path "./build/*" \
-                ! -path "./assets/*" \
-
-                | sort | head -n 1
-            )"
-
+            ICON_SOURCE="$(find . -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.webp" \) ! -path "./.git/*" ! -path "./build/*" ! -path "./assets/*" | sort | head -n 1)"
             if [ -z "$ICON_SOURCE" ]; then
               echo "No image found for the app icon."
               exit 1
             fi
-
             echo "Using image: $ICON_SOURCE"
 
             python - "$ICON_SOURCE" <<'PY'
           import sys
           from pathlib import Path
-
           from PIL import Image
 
           source = Path(sys.argv[1])
@@ -88,21 +75,9 @@ jobs:
           left = (width - side) // 2
           top = (height - side) // 2
 
-          image = image.crop(
-              (left, top, left + side, top + side)
-          )
-
-          image = image.resize(
-              (1024, 1024),
-              Image.Resampling.LANCZOS,
-          )
-
-          image.save(
-              output,
-              format="PNG",
-              optimize=True,
-          )
-
+          image = image.crop((left, top, left + side, top + side))
+          image = image.resize((1024, 1024), Image.Resampling.LANCZOS)
+          image.save(output, format="PNG", optimize=True)
           print(f"Created {output} from {source}")
           PY
           fi
