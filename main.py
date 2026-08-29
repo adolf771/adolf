@@ -216,7 +216,7 @@ def poster_card(item: dict[str, Any]) -> ft.Container:
                     controls=[
                         poster,
                         ft.Container(
-                            alignment=ft.Alignment(-1, 1),
+                            alignment=ft.alignment.bottom_left,
                             padding=10,
                             content=ft.Text(
                                 f"★ {item['rating']}",
@@ -311,8 +311,8 @@ def main(page: ft.Page) -> None:
             border_radius=18,
             padding=28,
             gradient=ft.LinearGradient(
-                begin=ft.Alignment(1, -1),
-                end=ft.Alignment(-1, 1),
+                begin=ft.alignment.top_right,
+                end=ft.alignment.bottom_left,
                 colors=[
                     "#3B1016",
                     "#1A0C0E",
@@ -361,11 +361,9 @@ def main(page: ft.Page) -> None:
                 if label == current_section
                 else None
             ),
-            padding=ft.Padding(
-                left=14,
-                right=14,
-                top=11,
-                bottom=11,
+            padding=ft.padding.symmetric(
+                horizontal=14,
+                vertical=11,
             ),
             on_click=lambda _event, section=label: (
                 render_section(section)
@@ -520,7 +518,7 @@ def main(page: ft.Page) -> None:
 
     sidebar = ft.Container(
         width=190,
-        padding=ft.Padding(
+        padding=ft.padding.only(
             left=18,
             right=18,
             top=24,
@@ -613,11 +611,9 @@ def main(page: ft.Page) -> None:
                 ),
                 ft.Container(
                     expand=True,
-                    padding=ft.Padding(
-                        left=30,
-                        right=30,
-                        top=24,
-                        bottom=24,
+                    padding=ft.padding.symmetric(
+                        horizontal=30,
+                        vertical=24,
                     ),
                     content=ft.Column(
                         expand=True,
