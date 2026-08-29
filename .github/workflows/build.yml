@@ -41,6 +41,5 @@ jobs:
 
     - name: Build Fast Android APK
       run: |
-        # الحل القاتل: ربط مسار الفلاتر تلقائياً بنظام Flet وإدخال الموافقة بشكل نصي آمن يمنع الـ EOFError
-        flet config flutter_path $FLUTTER_ROOT
-        echo "y" | flet build apk
+        # الحل القطعي: تمرير مسار الفلاتر الجاهز مباشرة للأداة لتبدأ البناء فورا بدون طرح أسئلة
+        flet build apk --flutter-path $FLUTTER_ROOT
