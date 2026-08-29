@@ -196,7 +196,7 @@ def poster_card(item: dict[str, Any]) -> ft.Container:
         )
     else:
         poster = ft.Image(
-            src_base64=placeholder_base64(title),
+            src=f"data:image/png;base64,{placeholder_base64(title)}",
             width=158,
             height=214,
             fit=ft.BoxFit.COVER,
