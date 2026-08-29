@@ -24,22 +24,30 @@ jobs:
       with:
         python-version: '3.10'
 
+    - name: Set up Flutter Environment
+      uses: subosito/flutter-action@v2
+      with:
+        channel: 'stable'
+
     - name: Install Fast Application Dependencies
       run: |
         pip install --upgrade pip
-        # تثبيت فلت وحزم التجميع المباشرة صامتة
         pip install flet requests pillow
 
     - name: Run App Engine to Verify Code
       run: |
         python3 main.py
 
-    # الحل السحري: إجبار أداة فليت على استخدام حزمة التجميع المدمجة صامتاً لتخطي خطأ الـ SDK والأسئلة نهائياً
     - name: Build Fast Android APK
+      env:
+        FLET_FLUTTER_PATH: ${{ env.FLUTTER_ROOT }}
+        CI: "true"
       run: |
-        # أمر بناء صامت ومستقل يتخطى تحميل الـ SDK الخارجي المسبب للأسئلة
-        flet build apk --no-interactive || echo "y" | flet build apk
-
+        yes | flutter doctor --android-licenses || true
+        
+        # الحــــــــل النهائي: إجبار Flet على تسمية التطبيق رسمياً وحقن مكتبة requests ومكتبة pillow بداخل الـ APK رغماً عنه لمنع الرسالة الحمراء
+        flet build apk --project "Palestine Movie App" --org "com.palestine" --include requests --include pillow
+        
     - name: Upload Fast APK Artifact
       uses: actions/upload-artifact@v4
       with:
