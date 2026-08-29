@@ -27,12 +27,22 @@ jobs:
     - name: Set up Flutter Environment
       uses: subosito/flutter-action@v2
       with:
+        flutter-version: '3.44.8'
         channel: 'stable'
+
+    # الحل الجذري والوحيد المعتمد: توليد ملف المتطلبات الرسمي لتدمج الأداة مكاتب بايثون داخل الـ APK تلقائياً
+    - name: Generate Requirements File for Mobile
+      run: |
+        cat <<EOF > requirements.txt
+        flet
+        requests
+        pillow
+        EOF
 
     - name: Install Fast Application Dependencies
       run: |
         pip install --upgrade pip
-        pip install flet requests pillow
+        pip install -r requirements.txt
 
     - name: Run App Engine to Verify Code
       run: |
@@ -40,13 +50,13 @@ jobs:
 
     - name: Build Fast Android APK
       env:
-        FLET_FLUTTER_PATH: ${{ env.FLUTTER_ROOT }}
-        CI: "true"
+        FLET_SKIP_FLUTTER_INSTALL: "true"
       run: |
+        export PATH="$FLUTTER_ROOT/bin:$PATH"
         yes | flutter doctor --android-licenses || true
         
-        # الحــــــــل النهائي: إجبار Flet على تسمية التطبيق رسمياً وحقن مكتبة requests ومكتبة pillow بداخل الـ APK رغماً عنه لمنع الرسالة الحمراء
-        flet build apk --project "Palestine Movie App" --org "com.palestine" --include requests --include pillow
+        # أمر البناء القياسي النقي والنظيف: ستقرأ الأداة ملف requirements.txt تلقائيا وتحزم المكاتب
+        flet build apk
         
     - name: Upload Fast APK Artifact
       uses: actions/upload-artifact@v4
