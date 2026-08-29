@@ -209,4 +209,4 @@ def main(page: ft.Page):
             arabic_and_custom = [i for i in media_data if "العربية" in i["category"] or "الحصرية" in i["category"]]
             for item in arabic_and_custom:
                 # حل المشكلة النهائي: تم كتابة وإغلاق ListTile الخاص بالتبويب العربي بشكل صريح وقاطع منفصل
-                arabic_tile = ft.ListTile) 
+                arabic_tile = ft.ListTile(
