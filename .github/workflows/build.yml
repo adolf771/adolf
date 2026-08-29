@@ -37,9 +37,9 @@ jobs:
 
     - name: Run App Engine to Verify Code
       run: |
-        python3 generator_final.py
+        python3 main.py
 
     - name: Build Fast Android APK
       run: |
-        # التعديل النهائي: الإشارة للمجلد الحالي بالكامل عبر (.) وتحديد اسم ملف التشغيل بدقة
-        flet build apk . --main-script-name generator_final.py
+        # الأمر القياسي النظيف: ستقوم الأداة ببناء ملف main.py تلقائياً وبدون أي أخطاء ارغومنت
+        flet build apk
