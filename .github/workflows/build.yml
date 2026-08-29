@@ -24,44 +24,21 @@ jobs:
       with:
         python-version: '3.10'
 
-    - name: Set up Flutter Environment
-      uses: subosito/flutter-action@v2
-      with:
-        flutter-version: '3.44.8'
-        channel: 'stable'
-
     - name: Install Fast Application Dependencies
       run: |
         pip install --upgrade pip
+        # تثبيت فلت وحزم التجميع المباشرة صامتة
         pip install flet requests pillow
 
     - name: Run App Engine to Verify Code
       run: |
         python3 main.py
 
-    # الحل الجذري والنهائي: كتابة ملف إعدادات Flet تلقائياً لتثبيت اسم التطبيق والأيقونة والمكتبات المطلوبة داخل الـ APK
-    - name: Generate Flet Configuration File
-      run: |
-        cat <<EOF > flet.yaml
-        app:
-          title: "Palestine Movie App"
-          package_name: "com.palestine.movieapp"
-          version: "1.0.0"
-          build_number: ${{ github.run_number }}
-        android:
-          permissions:
-            - INTERNET
-        EOF
-
+    # الحل السحري: إجبار أداة فليت على استخدام حزمة التجميع المدمجة صامتاً لتخطي خطأ الـ SDK والأسئلة نهائياً
     - name: Build Fast Android APK
-      env:
-        FLET_SKIP_FLUTTER_INSTALL: "true"
       run: |
-        export PATH="$FLUTTER_ROOT/bin:$PATH"
-        yes | flutter doctor --android-licenses || true
-        
-        # إجبار الأداة على حزم ودمج مكاتب الإنترنت والصور رغماً عنها لمنع الخطأ الأحمر عند الفتح
-        flet build apk --include requests --include pillow
+        # أمر بناء صامت ومستقل يتخطى تحميل الـ SDK الخارجي المسبب للأسئلة
+        flet build apk --no-interactive || echo "y" | flet build apk
 
     - name: Upload Fast APK Artifact
       uses: actions/upload-artifact@v4
