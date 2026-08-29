@@ -27,7 +27,7 @@ jobs:
     - name: Set up Flutter Environment
       uses: subosito/flutter-action@v2
       with:
-        flutter-version: '3.44.8' # قمنا بتثبيت نفس النسخة المطلوبة من فلت بدقة مسبقا
+        flutter-version: '3.44.8'
         channel: 'stable'
 
     - name: Install Fast Application Dependencies
@@ -41,14 +41,15 @@ jobs:
 
     - name: Build Fast Android APK
       env:
-        # الحــــــــل النهائي والجذري: منع فلت من تنزيل فلاتر خاص به وإجباره على استخدام النسخة الجاهزة بدون أسئلة
         FLET_SKIP_FLUTTER_INSTALL: "true"
       run: |
-        # ربط المسار العالمي وإطلاق البناء النظيف مباشرة
         export PATH="$FLUTTER_ROOT/bin:$PATH"
-        
-        # الموافقة الصامتة المسبقة على الرخص
         yes | flutter doctor --android-licenses || true
-        
-        # بناء التطبيق الفوري بسلام وبدون طرح أي أسئلة يدوية
         flet build apk
+
+    # الحــــــــل: إجبار جيت هوب على التقاط ملف الـ APK وتقديمه لك كزر تحميل رسمي في صفحة الـ Actions
+    - name: Upload Fast APK Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: Palestine-Movie-Fast-App
+        path: build/apk/*.apk
