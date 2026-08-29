@@ -13,7 +13,6 @@ CONSUMET_BASE_URL = "https://consumet.org"
 MOVIE_FOREIGN_IDS = ["tt0468569", "tt1375666", "tt0137523", "tt0110912"]
 MOVIE_ARABIC_IDS  = ["tt14227702", "tt11651812", "tt14671408"]
 
-# 🌟 قائمة السيرفرات اليدوية الخاصة بك
 CUSTOM_MANUAL_LINKS = {
     "tt11198330": "https://example.com",
     "tt9999999": "https://server2.com"
@@ -23,7 +22,7 @@ CUSTOM_MANUAL_LINKS = {
 def fetch_live_anime_links(anime_title, ep_count):
     eps = []
     try:
-        search_res = requests.get(f"{CONSUMET_BASE_URL}/anime/gogoanime/{anime_title}", timeout=4).json().get('results', [])
+        search_res = requests.get(f"{CONSUMET_BASE_URL}/anime/gogoanime/{anime_title}", timeout=5).json().get('results', [])
         if search_res and isinstance(search_res, list) and len(search_res) > 0:
             anime_id = search_res.get('id', '')
             if anime_id:
@@ -40,14 +39,14 @@ def fetch_live_anime_links(anime_title, ep_count):
 def fetch_tmdb_item(imdb_id):
     try:
         url = f"{TMDB_BASE_URL}/find/{imdb_id}"
-        r = requests.get(url, params={"api_key": TMDB_API_KEY, "external_source": "imdb_id"}, timeout=4).json()
+        r = requests.get(url, params={"api_key": TMDB_API_KEY, "external_source": "imdb_id"}, timeout=5).json()
         if r.get("movie_results"):
             tmdb_id = r["movie_results"]["id"]
-            details = requests.get(f"{TMDB_BASE_URL}/movie/{tmdb_id}", params={"api_key": TMDB_API_KEY, "language": "ar"}, timeout=4).json()
+            details = requests.get(f"{TMDB_BASE_URL}/movie/{tmdb_id}", params={"api_key": TMDB_API_KEY, "language": "ar"}, timeout=5).json()
             return "movie", details
         elif r.get("tv_results"):
             tmdb_id = r["tv_results"]["id"]
-            details = requests.get(f"{TMDB_BASE_URL}/tv/{tmdb_id}", params={"api_key": TMDB_API_KEY, "language": "ar"}, timeout=4).json()
+            details = requests.get(f"{TMDB_BASE_URL}/tv/{tmdb_id}", params={"api_key": TMDB_API_KEY, "language": "ar"}, timeout=5).json()
             return "series", details
     except Exception:
         pass
@@ -78,7 +77,7 @@ def load_all_media_data():
             })
             
     try:
-        anime_res = requests.get(f"{JIKAN_BASE_URL}/top/anime?page=1", timeout=4).json().get("data", [])[:6]
+        anime_res = requests.get(f"{JIKAN_BASE_URL}/top/anime?page=1", timeout=5).json().get("data", [])[:6]
         for item in anime_res:
             title = item.get("title", "أنمي")
             media_list.append({
