@@ -27,7 +27,7 @@ jobs:
     - name: Set up Flutter Environment
       uses: subosito/flutter-action@v2
       with:
-        flutter-version: '3.x'
+        flutter-version: '3.44.8' # قمنا بتثبيت نفس النسخة المطلوبة من فلت بدقة مسبقا
         channel: 'stable'
 
     - name: Install Fast Application Dependencies
@@ -40,12 +40,15 @@ jobs:
         python3 main.py
 
     - name: Build Fast Android APK
+      env:
+        # الحــــــــل النهائي والجذري: منع فلت من تنزيل فلاتر خاص به وإجباره على استخدام النسخة الجاهزة بدون أسئلة
+        FLET_SKIP_FLUTTER_INSTALL: "true"
       run: |
-        # 1. إدخال مسار الفلاتر في بيئة النظام
+        # ربط المسار العالمي وإطلاق البناء النظيف مباشرة
         export PATH="$FLUTTER_ROOT/bin:$PATH"
         
-        # 2. الحــــــل النهائي: الموافقة الصامتة والتلقائية على كل رخص أندرويد لمنع الأسئلة اليدوية
+        # الموافقة الصامتة المسبقة على الرخص
         yes | flutter doctor --android-licenses || true
         
-        # 3. إطلاق بناء الـ APK النظيف بدون بارامترات زائدة تعترض عليها الأداة
+        # بناء التطبيق الفوري بسلام وبدون طرح أي أسئلة يدوية
         flet build apk
