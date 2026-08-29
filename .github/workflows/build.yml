@@ -62,6 +62,7 @@ jobs:
                 ! -path "./.git/*" \
                 ! -path "./build/*" \
                 ! -path "./assets/*" \
+
                 | sort | head -n 1
             )"
 
@@ -125,7 +126,8 @@ jobs:
             --description "تطبيق أفلام وأنمي فلسطيني" \
             --android-adaptive-icon-background "#090909" \
             --yes \
-            --skip-flutter-doctor
+            --skip-flutter-doctor \
+            --vv
 
       - name: Upload Palestine Movie APK
         uses: actions/upload-artifact@v4
