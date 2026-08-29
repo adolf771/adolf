@@ -42,11 +42,11 @@ def fetch_tmdb_item(imdb_id):
         url = f"{TMDB_BASE_URL}/find/{imdb_id}"
         r = requests.get(url, params={"api_key": TMDB_API_KEY, "external_source": "imdb_id"}, timeout=4).json()
         if r.get("movie_results"):
-            tmdb_id = r["movie_results"][0]["id"]
+            tmdb_id = r["movie_results"]["id"]
             details = requests.get(f"{TMDB_BASE_URL}/movie/{tmdb_id}", params={"api_key": TMDB_API_KEY, "language": "ar"}, timeout=4).json()
             return "movie", details
         elif r.get("tv_results"):
-            tmdb_id = r["tv_results"][0]["id"]
+            tmdb_id = r["tv_results"]["id"]
             details = requests.get(f"{TMDB_BASE_URL}/tv/{tmdb_id}", params={"api_key": TMDB_API_KEY, "language": "ar"}, timeout=4).json()
             return "series", details
     except Exception:
@@ -210,6 +210,6 @@ def main(page: ft.Page):
             arabic_and_custom = [i for i in media_data if "العربية" in i["category"] or "الحصرية" in i["category"]]
             for item in arabic_and_custom:
                 main_content_area.controls.append(
-                    ft.ListTile) 
+                    ft.ListTile(
                         leading=ft.Image(src=item["poster"], width=40, height=60, fit=ft.ImageFit.COVER, border_radius=5),
                         title=ft.Text(item["title"]),
