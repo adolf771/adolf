@@ -7,9 +7,8 @@ dependencies = [
     "flet==0.86.5",
     "flet-video==0.86.5",
     "flet-webview==0.86.5",
-    "flet-web==0.86.5",
-    "requests>=2.32.3,<3",
-    "Pillow>=10.4.0,<13",
+    "requests",
+    "pillow",
 ]
 
 [tool.flet]
