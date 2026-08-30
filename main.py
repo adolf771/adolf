@@ -44,6 +44,7 @@ CONSUMET_BASE_URL = (
     os.getenv("CONSUMET_BASE_URL", "https://dummy-url.com").strip().rstrip("/")
     or "https://dummy-url.com"
 )
+
 VIDSRC_BASE_URL = os.getenv("VIDSRC_BASE_URL", "https://vidsrc.to").strip().rstrip("/")
 
 BACKGROUND = "#07090D"
