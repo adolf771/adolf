@@ -26,11 +26,6 @@ import requests
 from PIL import Image, ImageDraw
 
 try:
-    from app_config import TMDB_API_KEY as BUNDLED_TMDB_API_KEY
-except ImportError:
-    BUNDLED_TMDB_API_KEY = ""
-
-try:
     import flet_video as ftv
 except ImportError:
     ftv = None
@@ -43,7 +38,8 @@ except ImportError:
 
 TMDB_BASE_URL = "https://api.themoviedb.org/3"
 TMDB_IMAGE_URL = "https://image.tmdb.org/t/p/w780"
-TMDB_API_KEY = (os.getenv("TMDB_API_KEY") or BUNDLED_TMDB_API_KEY).strip()
+# The API key stays in Replit Secrets and is never committed to GitHub.
+TMDB_API_KEY = os.getenv("TMDB_API_KEY", "").strip()
 CONSUMET_BASE_URL = (
     os.getenv("CONSUMET_BASE_URL", "https://dummy-url.com").strip().rstrip("/")
     or "https://dummy-url.com"
