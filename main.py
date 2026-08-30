@@ -973,7 +973,7 @@ def main(page: ft.Page) -> None:
 
     def refresh(_event: ft.ControlEvent | None = None) -> None:
         if not data.tmdb_configured:
-            notify("أضف TMDB_API_KEY إلى Secrets باستخدام قيمته الأصلية.")
+            #notify("أضف TMDB_API_KEY إلى Secrets باستخدام قيمته الأصلية.")
             return
         notify("جارٍ تحميل المحتوى من TMDB...")
         try:
@@ -991,7 +991,7 @@ def main(page: ft.Page) -> None:
             render_home()
             return
         if not data.tmdb_configured:
-            notify("أضف TMDB_API_KEY إلى Secrets للبحث.")
+            #notify("أضف TMDB_API_KEY إلى Secrets للبحث.")
             return
         try:
             results = data.search(query)
