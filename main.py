@@ -26,6 +26,8 @@ TEXT = "#F7F8FA"
 MUTED = "#AAB2BF"
 ACCENT = "#F20D22"
 ACCENT_DARK = "#7D0A18"
+MAX_CATEGORY_PAGES = 3
+MAX_SEARCH_PAGES = 5
 
 
 CATEGORY_LABELS = {
@@ -109,13 +111,13 @@ class CinemaData:
     def configured(self) -> bool:
         return bool(self.api_key)
 
-    def fetch(self, endpoint: str, extra_params: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+    def fetch(self, endpoint: str, extra_params: dict[str, Any] | None = None, page: int = 1) -> list[dict[str, Any]]:
         if not self.configured:
             return []
         params: dict[str, Any] = {
             "api_key": self.api_key,
             "language": "ar-SA",
-            "page": 1,
+            "page": page,
         }
         if extra_params:
             params.update(extra_params)
@@ -124,21 +126,36 @@ class CinemaData:
         payload = response.json()
         return payload.get("results", [])
 
-    def load_catalog(self) -> dict[str, list[dict[str, Any]]]:
-        movies = [format_item(item, "movie") for item in self.fetch("movie/popular")]
-        series = [format_item(item, "series") for item in self.fetch("tv/popular")]
-        anime = [
-            format_item(item, "anime")
-            for item in self.fetch("discover/tv", {"with_genres": 16, "with_original_language": "ja", "sort_by": "popularity.desc"})
-        ]
-        cartoons = [
-            format_item(item, "cartoon")
-            for item in self.fetch("discover/tv", {"with_genres": 16, "without_original_language": "ja", "sort_by": "popularity.desc"})
-        ]
-        return {"movies": movies, "series": series, "anime": anime, "cartoons": cartoons}
+    def fetch_category(self, key: str, page: int = 1) -> list[dict[str, Any]]:
+        if key == "movies":
+            return [format_item(item, "movie") for item in self.fetch("movie/popular", page=page)]
+        if key == "series":
+            return [format_item(item, "series") for item in self.fetch("tv/popular", page=page)]
+        if key == "anime":
+            return [
+                format_item(item, "anime")
+                for item in self.fetch(
+                    "discover/tv",
+                    {"with_genres": 16, "with_original_language": "ja", "sort_by": "popularity.desc"},
+                    page=page,
+                )
+            ]
+        if key == "cartoons":
+            return [
+                format_item(item, "cartoon")
+                for item in self.fetch(
+                    "discover/tv",
+                    {"with_genres": 16, "without_original_language": "ja", "sort_by": "popularity.desc"},
+                    page=page,
+                )
+            ]
+        return []
 
-    def search(self, query: str) -> list[dict[str, Any]]:
-        results = self.fetch("search/multi", {"query": query, "include_adult": False})
+    def load_catalog(self) -> dict[str, list[dict[str, Any]]]:
+        return {key: self.fetch_category(key, page=1) for key in ("movies", "series", "anime", "cartoons")}
+
+    def search(self, query: str, page: int = 1) -> list[dict[str, Any]]:
+        results = self.fetch("search/multi", {"query": query, "include_adult": False}, page=page)
         items: list[dict[str, Any]] = []
         for item in results:
             if item.get("media_type") == "movie":
@@ -159,8 +176,14 @@ def main(page: ft.Page) -> None:
 
     data_source = CinemaData()
     catalogs = {key: list(items) for key, items in FALLBACKS.items()}
+    category_pages = {key: 1 for key in FALLBACKS}
+    category_loading: set[str] = set()
     current_view = "home"
     search_results: list[dict[str, Any]] = []
+    search_query = ""
+    search_page = 1
+    search_loading = False
+    search_has_more = False
 
     content = ft.Column(
         expand=True,
@@ -242,6 +265,41 @@ def main(page: ft.Page) -> None:
             ],
         )
 
+    def load_more_category(key: str, event: ft.OnScrollEvent) -> None:
+        if (
+            not data_source.configured
+            or key in category_loading
+            or category_pages.get(key, 1) >= MAX_CATEGORY_PAGES
+        ):
+            return
+        pixels = float(getattr(event, "pixels", 0) or 0)
+        max_extent = float(getattr(event, "max_scroll_extent", 0) or 0)
+        if max_extent <= 0 or pixels < max_extent - 100:
+            return
+
+        category_loading.add(key)
+        next_page = category_pages.get(key, 1) + 1
+        try:
+            more_items = data_source.fetch_category(key, page=next_page)
+            existing_ids = {str(item.get("id")) for item in catalogs.get(key, [])}
+            new_items = [item for item in more_items if str(item.get("id")) not in existing_ids]
+            if new_items:
+                catalogs[key].extend(new_items)
+                category_pages[key] = next_page
+                row = getattr(event, "control", None)
+                if row is not None and hasattr(row, "controls"):
+                    row.controls.extend(poster_card(item) for item in new_items)
+                    row.update()
+                else:
+                    render_home()
+            elif next_page >= MAX_CATEGORY_PAGES:
+                category_pages[key] = next_page
+        except (requests.RequestException, ValueError, KeyError) as error:
+            status.value = f"تعذر تحميل المزيد: {error}"
+            page.update()
+        finally:
+            category_loading.discard(key)
+
     def open_details(item: dict[str, Any]) -> None:
         nonlocal current_view
         current_view = "details"
@@ -294,7 +352,12 @@ def main(page: ft.Page) -> None:
                         ft.Text(f"{emoji}  {title}", color=TEXT, size=21, weight=ft.FontWeight.BOLD, text_align=ft.TextAlign.RIGHT),
                     ],
                 ),
-                ft.Row(controls=[poster_card(item) for item in items[:10]], spacing=12, scroll=ft.ScrollMode.AUTO),
+                ft.Row(
+                    controls=[poster_card(item) for item in items],
+                    spacing=12,
+                    scroll=ft.ScrollMode.AUTO,
+                    on_scroll=lambda event, category=key: load_more_category(category, event),
+                ),
             ],
         )
 
@@ -368,19 +431,7 @@ def main(page: ft.Page) -> None:
         all_items = [item for items in catalogs.values() for item in items]
         return [item for item in all_items if query_lower in str(item.get("title", "")).lower()]
 
-    def perform_search(_event: ft.ControlEvent | None = None) -> None:
-        nonlocal search_results, current_view
-        query = (search_field.value or "").strip()
-        if not query:
-            render_home()
-            return
-        current_view = "search"
-        try:
-            search_results = data_source.search(query) if data_source.configured else search_local(query)
-            status.value = f"نتائج البحث عن: {query}"
-        except requests.RequestException as error:
-            search_results = search_local(query)
-            status.value = f"تعذر البحث الآن، هذه النتائج المحلية: {error}"
+    def render_search_results() -> None:
         content.controls.clear()
         content.controls.extend([
             ft.Row(
@@ -391,9 +442,72 @@ def main(page: ft.Page) -> None:
                 ],
             ),
             ft.Text(f"{len(search_results)} نتيجة", color=MUTED, size=13, text_align=ft.TextAlign.RIGHT),
-            ft.Row(wrap=True, spacing=12, run_spacing=14, controls=[poster_card(item) for item in search_results] or [ft.Text("لم نجد نتائج بهذا الاسم.", color=MUTED, size=16)]),
+            ft.Row(
+                wrap=True,
+                spacing=12,
+                run_spacing=14,
+                controls=[poster_card(item) for item in search_results]
+                or [ft.Text("لم نجد نتائج بهذا الاسم.", color=MUTED, size=16)],
+            ),
+            ft.Text(
+                "مرر للأسفل لتحميل المزيد" if search_has_more else "تم عرض النتائج المتاحة",
+                color=MUTED,
+                size=12,
+                text_align=ft.TextAlign.CENTER,
+            ),
         ])
         page.update()
+
+    def load_more_search(event: ft.OnScrollEvent) -> None:
+        nonlocal search_page, search_loading, search_has_more, search_results
+        if (
+            current_view != "search"
+            or not data_source.configured
+            or search_loading
+            or not search_has_more
+            or search_page >= MAX_SEARCH_PAGES
+        ):
+            return
+        pixels = float(getattr(event, "pixels", 0) or 0)
+        max_extent = float(getattr(event, "max_scroll_extent", 0) or 0)
+        if max_extent <= 0 or pixels < max_extent - 120:
+            return
+
+        search_loading = True
+        next_page = search_page + 1
+        try:
+            more_results = data_source.search(search_query, page=next_page)
+            existing_ids = {str(item.get("id")) for item in search_results}
+            search_results.extend(
+                item for item in more_results if str(item.get("id")) not in existing_ids
+            )
+            search_page = next_page
+            search_has_more = len(more_results) >= 20 and search_page < MAX_SEARCH_PAGES
+            render_search_results()
+        except (requests.RequestException, ValueError, KeyError) as error:
+            status.value = f"تعذر تحميل نتائج إضافية: {error}"
+            page.update()
+        finally:
+            search_loading = False
+
+    def perform_search(_event: ft.ControlEvent | None = None) -> None:
+        nonlocal search_results, current_view, search_query, search_page, search_has_more
+        query = (search_field.value or "").strip()
+        if not query:
+            render_home()
+            return
+        current_view = "search"
+        search_query = query
+        search_page = 1
+        try:
+            search_results = data_source.search(query, page=1) if data_source.configured else search_local(query)
+            search_has_more = data_source.configured and len(search_results) >= 20
+            status.value = f"نتائج البحث عن: {query}"
+        except requests.RequestException as error:
+            search_results = search_local(query)
+            search_has_more = False
+            status.value = f"تعذر البحث الآن، هذه النتائج المحلية: {error}"
+        render_search_results()
 
     def load_from_tmdb(_event: ft.ControlEvent | None = None) -> None:
         if not data_source.configured:
@@ -406,6 +520,7 @@ def main(page: ft.Page) -> None:
             for key, items in fresh.items():
                 if items:
                     catalogs[key] = items
+                    category_pages[key] = 1
             status.value = "تم تحديث الأفلام والمسلسلات والأنمي والكرتون."
             render_home()
         except (requests.RequestException, ValueError, KeyError) as error:
@@ -460,6 +575,7 @@ def main(page: ft.Page) -> None:
             content=ft.Column(expand=True, spacing=10, controls=[top_bar, status, content]),
         )
     )
+    content.on_scroll = load_more_search
     render_home()
 
 
