@@ -1,4 +1,4 @@
-"""واجهة سينماي: أفلام ومسلسلات وأنمي وكرتون بواجهة موبايل قابلة للتمرير."""
+"""واجهة أفلام ومسلسلات وأنمي بواجهة موبايل قابلة للتمرير."""
 
 from __future__ import annotations
 
@@ -167,7 +167,7 @@ class CinemaData:
 
 
 def main(page: ft.Page) -> None:
-    page.title = "سينماي — أفلام ومسلسلات وأنمي"
+    page.title = "Palestine Movie — أفلام ومسلسلات وأنمي"
     page.theme_mode = ft.ThemeMode.DARK
     page.bgcolor = BACKGROUND
     page.padding = 0
@@ -200,7 +200,7 @@ def main(page: ft.Page) -> None:
         elif poster:
             source = f"{TMDB_IMAGE_URL}{poster}"
         else:
-            source = f"data:image/png;base64,{placeholder_base64(str(item.get('title', 'سينماي')))}"
+            source = f"data:image/png;base64,{placeholder_base64(str(item.get('title', 'محتوى')))}"
         return ft.Image(src=source, width=width, height=height, fit=ft.BoxFit.COVER, border_radius=14)
 
     def poster_card(item: dict[str, Any]) -> ft.Container:
@@ -364,7 +364,7 @@ def main(page: ft.Page) -> None:
     def hero() -> ft.Container:
         featured = (catalogs.get("movies") or catalogs.get("series") or catalogs.get("anime") or [])[0]
         background = featured.get("backdrop") or featured.get("poster")
-        source = f"{TMDB_IMAGE_URL}{background}" if background else f"data:image/png;base64,{placeholder_base64(str(featured.get('title', 'سينماي')))}"
+        source = f"{TMDB_IMAGE_URL}{background}" if background else f"data:image/png;base64,{placeholder_base64(str(featured.get('title', 'محتوى')))}"
         return ft.Container(
             height=350,
             border_radius=24,
@@ -547,7 +547,7 @@ def main(page: ft.Page) -> None:
         controls=[
             ft.IconButton(icon=ft.Icons.REFRESH, tooltip="تحديث المحتوى", icon_color=MUTED, on_click=load_from_tmdb),
             ft.Container(expand=True, content=search_field),
-            ft.Text("سينماي", color=ACCENT, size=24, weight=ft.FontWeight.BOLD),
+            ft.Text("Palestine Movie", color=ACCENT, size=22, weight=ft.FontWeight.BOLD),
         ],
     )
 
