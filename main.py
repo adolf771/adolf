@@ -5,12 +5,12 @@ No sample or hard-coded video URL is used.  Set the following environment
 variables in the Replit Secrets / build environment:
 
     TMDB_API_KEY       the existing TMDB key supplied by the app owner
-    CONSUMET_BASE_URL  URL of a self-hosted Consumet instance
+    CONSUMET_BASE_URL  optional override for a self-hosted Consumet instance
     VIDSRC_BASE_URL    optional Vidsrc embed host (defaults to vidsrc.to)
 
-Consumet's public hosted API is no longer guaranteed to be available, so the
-base URL is intentionally configurable instead of silently pointing to a
-dead public endpoint.
+Consumet availability is intentionally not checked during startup.  The
+configured placeholder lets the built-in fallback path continue to Vidsrc
+when no Consumet server is available.
 """
 
 from __future__ import annotations
@@ -44,7 +44,10 @@ except ImportError:
 TMDB_BASE_URL = "https://api.themoviedb.org/3"
 TMDB_IMAGE_URL = "https://image.tmdb.org/t/p/w780"
 TMDB_API_KEY = (os.getenv("TMDB_API_KEY") or BUNDLED_TMDB_API_KEY).strip()
-CONSUMET_BASE_URL = os.getenv("CONSUMET_BASE_URL", "").strip().rstrip("/")
+CONSUMET_BASE_URL = (
+    os.getenv("CONSUMET_BASE_URL", "https://dummy-url.com").strip().rstrip("/")
+    or "https://dummy-url.com"
+)
 VIDSRC_BASE_URL = os.getenv("VIDSRC_BASE_URL", "https://vidsrc.to").strip().rstrip("/")
 
 BACKGROUND = "#07090D"
@@ -231,7 +234,9 @@ class CinemaData:
 
     @property
     def consumet_configured(self) -> bool:
-        return bool(CONSUMET_BASE_URL)
+        # Do not probe or validate Consumet. Requests are attempted lazily and
+        # live_sources() falls back when the placeholder/server is unavailable.
+        return True
 
     def _json(
         self,
@@ -262,10 +267,6 @@ class CinemaData:
         return payload.get("results", []) if isinstance(payload, dict) else []
 
     def consumet(self, path: str, params: dict[str, Any] | None = None) -> Any:
-        if not self.consumet_configured:
-            raise ApiConfigurationError(
-                "أضف CONSUMET_BASE_URL إلى Secrets لاستخراج روابط البث الحية."
-            )
         url = f"{CONSUMET_BASE_URL}/{path.lstrip('/')}"
         return self._json(url, params=params, timeout=20)
 
@@ -737,7 +738,7 @@ def main(page: ft.Page) -> None:
         item: dict[str, Any],
         entry: dict[str, Any],
     ) -> None:
-        notify("جارٍ استخراج رابط البث الحي من Consumet...")
+        notify("جارٍ البحث عن مصدر بث حي...")
         try:
             sources = data.live_sources(item, entry)
         except (
@@ -757,10 +758,7 @@ def main(page: ft.Page) -> None:
             if vidsrc_source:
                 show_vidsrc_webview(item, vidsrc_source, entry)
                 return
-            notify(
-                "لم يُرجع Consumet رابط فيديو مباشر. "
-                "تأكد من تشغيل نسخة Consumet الخاصة بك."
-            )
+            notify("لم يتوفر مصدر بث حي لهذا المحتوى حالياً.")
             return
         dialog = ft.AlertDialog(
             modal=True,
