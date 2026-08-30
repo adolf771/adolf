@@ -35,6 +35,11 @@ try:
 except ImportError:
     ftv = None
 
+try:
+    import flet_webview as fwv
+except ImportError:
+    fwv = None
+
 
 TMDB_BASE_URL = "https://api.themoviedb.org/3"
 TMDB_IMAGE_URL = "https://image.tmdb.org/t/p/w780"
@@ -49,6 +54,120 @@ TEXT = "#F7F8FA"
 MUTED = "#AAB2BF"
 ACCENT = "#F20D22"
 PAGE_SIZE = 20
+
+VIDSRC_BLOCKED_LINK_PREFIXES = [
+    "about:blank",
+    "javascript:",
+    "intent:",
+    "market:",
+    "mailto:",
+    "tel:",
+    "https://doubleclick.net",
+    "https://*.doubleclick.net",
+    "https://googlesyndication.com",
+    "https://*.googlesyndication.com",
+    "https://googleadservices.com",
+    "https://*.googleadservices.com",
+    "https://popads.net",
+    "https://*.popads.net",
+    "https://propellerads.com",
+    "https://*.propellerads.com",
+]
+
+# Vidsrc is an HTML embed page.  This script runs after each navigation and
+# removes common ad containers while neutralising popup and redirect APIs.
+# Native WebView navigation is also guarded by prevent_links below.
+VIDSRC_BLOCKER_SCRIPT = r"""
+(function () {
+  "use strict";
+  if (window.__palestineMovieBlockerInstalled) return;
+  window.__palestineMovieBlockerInstalled = true;
+
+  const blockedPattern = /(doubleclick|googlesyndication|googleadservices|popads|propellerads|adservice|adnxs|clickadu|exoclick|trafficjunky|onclickads)/i;
+  const adSelector = [
+    '[id*="ad" i]', '[class*="ad-" i]', '[class*="ads" i]',
+    '[class*="popup" i]', '[class*="popunder" i]',
+    'iframe[src*="ads" i]', 'iframe[src*="doubleclick" i]',
+    'script[src*="ads" i]', 'a[target="_blank"]'
+  ].join(",");
+
+  const clean = (root) => {
+    if (!root || !root.querySelectorAll) return;
+    root.querySelectorAll(adSelector).forEach((node) => {
+      const source = node.src || node.href || "";
+      if (blockedPattern.test(source) || node.matches('a[target="_blank"]')) {
+        node.remove();
+      }
+    });
+  };
+
+  const originalOpen = window.open;
+  window.open = function (url) {
+    if (!url || blockedPattern.test(String(url))) return null;
+    return null;
+  };
+  window.alert = function () {};
+  window.confirm = function () { return false; };
+  window.prompt = function () { return null; };
+
+  ["assign", "replace"].forEach((method) => {
+    const original = window.location[method];
+    try {
+      window.location[method] = function (url) {
+        if (blockedPattern.test(String(url || ""))) return;
+        return original.call(window.location, url);
+      };
+    } catch (_) {}
+  });
+
+  const originalFetch = window.fetch;
+  window.fetch = function (input, init) {
+    const url = typeof input === "string" ? input : (input && input.url) || "";
+    if (blockedPattern.test(String(url))) {
+      return Promise.reject(new Error("Blocked advertising request"));
+    }
+    return originalFetch.call(this, input, init);
+  };
+
+  const originalXhrOpen = XMLHttpRequest.prototype.open;
+  XMLHttpRequest.prototype.open = function (method, url) {
+    if (blockedPattern.test(String(url || ""))) {
+      this.__palestineMovieBlocked = true;
+    }
+    return originalXhrOpen.apply(this, arguments);
+  };
+  const originalXhrSend = XMLHttpRequest.prototype.send;
+  XMLHttpRequest.prototype.send = function () {
+    if (this.__palestineMovieBlocked) return;
+    return originalXhrSend.apply(this, arguments);
+  };
+
+  document.addEventListener("click", (event) => {
+    const link = event.target && event.target.closest
+      ? event.target.closest("a")
+      : null;
+    if (link && (link.target === "_blank" || blockedPattern.test(link.href || ""))) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }
+  }, true);
+
+  document.addEventListener("submit", (event) => {
+    const action = event.target && event.target.action || "";
+    if (blockedPattern.test(action)) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }
+  }, true);
+
+  clean(document);
+  new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      mutation.addedNodes.forEach((node) => clean(node));
+    });
+  }).observe(document.documentElement || document, { childList: true, subtree: true });
+})();
+"""
 
 CATEGORY_LABELS = {
     "movie": "فيلم",
@@ -467,15 +586,102 @@ def main(page: ft.Page) -> None:
     def source_title(source: dict[str, Any]) -> str:
         return f"{source.get('provider', 'مصدر')} • {source.get('quality', 'auto')}"
 
+    def show_vidsrc_webview(
+        item: dict[str, Any],
+        source: dict[str, Any],
+        entry: dict[str, Any],
+    ) -> None:
+        """Show Vidsrc in-app and inject the popup/ad guard after navigation."""
+        if fwv is None:
+            notify("ثبّت flet-webview لتشغيل Vidsrc داخل التطبيق.")
+            return
+
+        url = str(source.get("url", "")).strip()
+        if not url.startswith(("https://", "http://")):
+            notify("رابط Vidsrc غير صالح.")
+            return
+
+        async def inject_blocker(_event: Any = None) -> None:
+            try:
+                await webview.set_javascript_mode(fwv.JavaScriptMode.UNRESTRICTED)
+                await webview.run_javascript(VIDSRC_BLOCKER_SCRIPT)
+            except Exception as error:
+                notify(f"تعذر تفعيل حماية WebView: {error}")
+
+        def guard_navigation(event: Any) -> None:
+            changed_url = str(getattr(event, "data", "") or "").lower()
+            blocked_tokens = (
+                "doubleclick",
+                "googlesyndication",
+                "googleadservices",
+                "popads",
+                "propellerads",
+                "adservice",
+                "adnxs",
+                "clickadu",
+                "exoclick",
+                "trafficjunky",
+                "onclickads",
+            )
+            if changed_url.startswith(("intent:", "market:", "mailto:", "tel:")):
+                page.run_task(webview.go_back)
+            elif any(token in changed_url for token in blocked_tokens):
+                page.run_task(webview.go_back)
+
+        webview = fwv.WebView(
+            url=url,
+            prevent_links=VIDSRC_BLOCKED_LINK_PREFIXES,
+            bgcolor="#050608",
+            expand=True,
+            on_page_ended=inject_blocker,
+            on_url_change=guard_navigation,
+        )
+
+        content.controls.clear()
+        content.controls.extend(
+            [
+                ft.Row(
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    controls=[
+                        ft.IconButton(
+                            icon=ft.Icons.ARROW_BACK,
+                            icon_color=TEXT,
+                            on_click=lambda _event: open_details(item),
+                        ),
+                        ft.Text("مشاهدة آمنة", color=TEXT, size=24),
+                    ],
+                ),
+                ft.Container(
+                    height=520,
+                    bgcolor="#050608",
+                    border_radius=18,
+                    clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
+                    content=webview,
+                ),
+                ft.Text(
+                    f"{item.get('title', 'المحتوى')} • "
+                    f"{entry.get('title', 'الحلقة')} • Vidsrc",
+                    color=TEXT,
+                    size=16,
+                    weight=ft.FontWeight.BOLD,
+                    text_align=ft.TextAlign.RIGHT,
+                ),
+            ]
+        )
+        page.update()
+
     def show_player(
         item: dict[str, Any],
         source: dict[str, Any],
         entry: dict[str, Any],
     ) -> None:
         if not source.get("playable"):
+            if source.get("provider") == "Vidsrc":
+                show_vidsrc_webview(item, source, entry)
+                return
             notify(
                 "Vidsrc يعيد صفحة تضمين HTML وليس رابط فيديو مباشر؛ "
-                "يلزم WebView منفصل لتشغيله."
+                "يلزم WebView لتشغيله."
             )
             return
         if ftv is None:
@@ -544,6 +750,13 @@ def main(page: ft.Page) -> None:
             return
         playable = [source for source in sources if source.get("playable")]
         if not playable:
+            vidsrc_source = next(
+                (source for source in sources if source.get("provider") == "Vidsrc"),
+                None,
+            )
+            if vidsrc_source:
+                show_vidsrc_webview(item, vidsrc_source, entry)
+                return
             notify(
                 "لم يُرجع Consumet رابط فيديو مباشر. "
                 "تأكد من تشغيل نسخة Consumet الخاصة بك."
