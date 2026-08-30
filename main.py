@@ -38,24 +38,27 @@ CATEGORY_LABELS = {
 
 FALLBACKS: dict[str, list[dict[str, Any]]] = {
     "movies": [
-        {"title": "أفلام جديدة", "subtitle": "أفلام • قريباً", "rating": "—", "poster": None, "overview": "أحدث الأفلام ستظهر هنا عند ربط مصدر البيانات.", "kind": "movie"},
-        {"title": "اختيارات اليوم", "subtitle": "فيلم • ترشيحات", "rating": "—", "poster": None, "overview": "مجموعة أفلام مختارة للمشاهدة.", "kind": "movie"},
-        {"title": "سينما عالمية", "subtitle": "فيلم • متنوع", "rating": "—", "poster": None, "overview": "قصص من كل مكان في مكان واحد.", "kind": "movie"},
+        {"title": "بين النجوم", "subtitle": "فيلم • 2014", "rating": "8.7", "poster": "/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg", "overview": "رحلة فضائية ملحمية لإنقاذ مستقبل البشرية.", "kind": "movie"},
+        {"title": "فارس الظلام", "subtitle": "فيلم • 2008", "rating": "9.0", "poster": "/qJ2tW6WMUDux911r6m7haRef0WH.jpg", "overview": "مواجهة أسطورية بين باتمان وأخطر أعدائه.", "kind": "movie"},
+        {"title": "استهلال", "subtitle": "فيلم • 2010", "rating": "8.8", "poster": "/9gk7adHYeDvHkCSEqAvQNLV5Uge.jpg", "overview": "لص محترف يدخل إلى أحلام الآخرين.", "kind": "movie"},
+        {"title": "أوبنهايمر", "subtitle": "فيلم • 2023", "rating": "8.6", "poster": "/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg", "overview": "قصة العالم الذي غيّر مسار التاريخ.", "kind": "movie"},
+        {"title": "المصفوفة", "subtitle": "فيلم • 1999", "rating": "8.7", "poster": "/f89U3ADr1oiB1s9GkdPOEpXUk5H.jpg", "overview": "اكتشاف الحقيقة خلف العالم الذي نعيش فيه.", "kind": "movie"},
     ],
     "series": [
-        {"title": "مسلسلات جديدة", "subtitle": "مسلسل • قريباً", "rating": "—", "poster": None, "overview": "المسلسلات ستظهر هنا عند ربط مصدر البيانات.", "kind": "series"},
-        {"title": "الأكثر متابعة", "subtitle": "مسلسل • ترشيحات", "rating": "—", "poster": None, "overview": "أفضل المسلسلات المقترحة لك.", "kind": "series"},
-        {"title": "حلقات لا تفوّت", "subtitle": "مسلسل • مستمر", "rating": "—", "poster": None, "overview": "تابع آخر الحلقات والأعمال الجديدة.", "kind": "series"},
+        {"title": "صراع العروش", "subtitle": "مسلسل • 2011", "rating": "8.5", "poster": "/1XS1oqL89opfnbLl8WnZlJg1Z1e.jpg", "overview": "صراع عائلات وممالك على العرش الحديدي.", "kind": "series"},
+        {"title": "بريكنغ باد", "subtitle": "مسلسل • 2008", "rating": "9.5", "poster": "/ztkUQFLlC19CCMYHW9o1zWhJRN2.jpg", "overview": "مدرس كيمياء يدخل عالم الجريمة.", "kind": "series"},
+        {"title": "بيكي بلايندرز", "subtitle": "مسلسل • 2013", "rating": "8.6", "poster": "/vUUqzWa2LnHIVqkaKVlVGkVcZIW.jpg", "overview": "عائلة نافذة تبني إمبراطوريتها في برمنغهام.", "kind": "series"},
+        {"title": "دارك", "subtitle": "مسلسل • 2017", "rating": "8.7", "poster": "/apbrbWs8M9lyOpJYU5WXrpFbk1Z.jpg", "overview": "اختفاء طفل يكشف أسرارًا تمتد عبر الزمن.", "kind": "series"},
     ],
     "anime": [
-        {"title": "عالم الأنمي", "subtitle": "أنمي • قريباً", "rating": "—", "poster": None, "overview": "الأنمي المفضل لديك سيظهر هنا.", "kind": "anime"},
-        {"title": "أنمي الأسبوع", "subtitle": "أنمي • ترشيحات", "rating": "—", "poster": None, "overview": "ترشيحات محبي الأنمي.", "kind": "anime"},
-        {"title": "حلقات جديدة", "subtitle": "أنمي • مستمر", "rating": "—", "poster": None, "overview": "تابع آخر أحداث الأنمي.", "kind": "anime"},
+        {"title": "هجوم العمالقة", "subtitle": "أنمي • 2013", "rating": "9.1", "poster": "/hTP1DtLGHm8hJni3l2pC6dH1YxF.jpg", "overview": "البشرية تقاتل من أجل البقاء خلف الأسوار.", "kind": "anime"},
+        {"title": "قاتل الشياطين", "subtitle": "أنمي • 2019", "rating": "8.6", "poster": "/xUfRZu2mi8jH6SzfH7wYdM7kZ0A.jpg", "overview": "رحلة تانجيرو لإنقاذ أخته ومواجهة الشياطين.", "kind": "anime"},
+        {"title": "ون بيس", "subtitle": "أنمي • 1999", "rating": "8.7", "poster": "/fcXdJlbSdUEeMSJFsXKsznGwwok.jpg", "overview": "مغامرة القراصنة بحثًا عن الكنز الأسطوري.", "kind": "anime"},
     ],
     "cartoons": [
-        {"title": "كرتون العائلة", "subtitle": "كرتون • قريباً", "rating": "—", "poster": None, "overview": "محتوى ممتع للعائلة والأطفال.", "kind": "cartoon"},
-        {"title": "ذكريات جميلة", "subtitle": "كرتون • كلاسيكي", "rating": "—", "poster": None, "overview": "كرتون محبوب لكل الأعمار.", "kind": "cartoon"},
-        {"title": "مغامرات جديدة", "subtitle": "كرتون • ترشيحات", "rating": "—", "poster": None, "overview": "مغامرات وحكايات لا تنتهي.", "kind": "cartoon"},
+        {"title": "حكاية لعبة", "subtitle": "كرتون • 1995", "rating": "8.3", "poster": "/uXDfjJbdP4ijW5hWSBrPrlKpxab.jpg", "overview": "لعب الأطفال تعيش مغامراتها عندما يغيب أصحابها.", "kind": "cartoon"},
+        {"title": "شرِك", "subtitle": "كرتون • 2001", "rating": "7.9", "poster": "/iB64vpL3dIObOtMZgX3RqdVdQDc.jpg", "overview": "غول طيب يخوض مغامرة غير متوقعة.", "kind": "cartoon"},
+        {"title": "البحث عن نيمو", "subtitle": "كرتون • 2003", "rating": "8.2", "poster": "/eHuGQ10FUzK1mdOY69wF5pGgEf5.jpg", "overview": "رحلة أب عبر المحيط للعثور على ابنه.", "kind": "cartoon"},
     ],
 }
 
@@ -169,7 +172,12 @@ def main(page: ft.Page) -> None:
 
     def item_image(item: dict[str, Any], width: int, height: int) -> ft.Image:
         poster = item.get("poster")
-        source = f"{TMDB_IMAGE_URL}{poster}" if poster else f"data:image/png;base64,{placeholder_base64(str(item.get('title', 'سينماي')))}"
+        if poster and str(poster).startswith(("http://", "https://")):
+            source = str(poster)
+        elif poster:
+            source = f"{TMDB_IMAGE_URL}{poster}"
+        else:
+            source = f"data:image/png;base64,{placeholder_base64(str(item.get('title', 'سينماي')))}"
         return ft.Image(src=source, width=width, height=height, fit=ft.BoxFit.COVER, border_radius=14)
 
     def poster_card(item: dict[str, Any]) -> ft.Container:
@@ -291,7 +299,7 @@ def main(page: ft.Page) -> None:
         )
 
     def hero() -> ft.Container:
-        featured = (catalogs.get("anime") or catalogs.get("movies") or [])[0]
+        featured = (catalogs.get("movies") or catalogs.get("series") or catalogs.get("anime") or [])[0]
         background = featured.get("backdrop") or featured.get("poster")
         source = f"{TMDB_IMAGE_URL}{background}" if background else f"data:image/png;base64,{placeholder_base64(str(featured.get('title', 'سينماي')))}"
         return ft.Container(
