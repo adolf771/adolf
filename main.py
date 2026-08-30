@@ -220,7 +220,7 @@ class CinemaData:
     """Metadata and live-source client."""
 
     def __init__(self) -> None:
-        self.api_key = TMDB_API_KEY
+        self.api_key = af9a9f29019a8416529a60c07110347d
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": "Palestine-Movie-App/1.0"})
 
