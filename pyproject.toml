@@ -1,0 +1,24 @@
+[project]
+name = "palestine-movie-app"
+version = "1.0.0"
+description = "Palestine Movie App - أفلام ومسلسلات وأنمي"
+requires-python = ">=3.10,<3.14"
+dependencies = [
+    "flet==0.86.5",
+    "flet-video==0.86.5",
+    "flet-embed==0.24.1",
+    "requests>=2.32.3,<3",
+    "Pillow>=10.4.0,<13",
+]
+
+[tool.flet]
+product = "Palestine Movie App"
+org = "com.palestinemovie"
+company = "Palestine Movie App"
+copyright = "Copyright (C) 2026 Palestine Movie App"
+
+[tool.flet.android]
+permissions = [
+    "android.permission.INTERNET",
+    "android.permission.READ_MEDIA_VIDEO",
+]
