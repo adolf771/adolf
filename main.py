@@ -108,43 +108,31 @@ def format_item(item: dict[str, Any], kind: str | None = None) -> dict[str, Any]
         "streams": list(item.get("streams") or []),
     }
 
+
 def get_content_episodes(media_title: str) -> list[dict[str, str | int]]:
-    """جلب الحلقات الحقيقية للأنمي أو المسلسل من خادم Consumet تلقائياً."""
-    import requests
-    try:
-        search_res = requests.get(f"https://consumet.org{media_title}", timeout=6).json()
-        if not search_res.get("results"):
-            return [{"episode_id": media_title, "episode_number": 1, "title": "الفيلم كامل", "subtitle": "تشغيل مباشر"}]
-        
-        anime_id = search_res["results"]["id"] if isinstance(search_res["results"], list) else search_res["results"]["id"]
-        
-        info_res = requests.get(f"https://consumet.orginfo/{anime_id}", timeout=6).json()
-        episodes = []
-        if info_res.get("episodes"):
-            for ep in info_res["episodes"]:
-                num = ep.get("number", 1)
-                episodes.append({
-                    "episode_id": ep.get("id"),
-                    "episode_number": num,
-                    "title": f"الحلقة {num}",
-                    "subtitle": f"حلقة فعلية جاهزة للمشاهدة",
-                })
-            return episodes
-    except:
-        pass
-    
+    """Mock hook for the user's authorized episode catalog.
+
+    Replace only this function with the legal service that owns the episodes.
+    The UI expects an episode_id and a display title for every returned item.
+    """
     title_key = str(media_title or "content").strip().replace(" ", "-")[:48] or "content"
-    return [{
-        "episode_id": f"{title_key}-full",
-        "episode_number": 1,
-        "title": "المحتوى كامل",
-        "subtitle": "اضغط للاختيار والتشغيل",
-    }]
+    return [
+        {
+            "episode_id": f"demo-{title_key}-episode-{number}",
+            "episode_number": number,
+            "title": f"الحلقة {number}",
+            "subtitle": "حلقة تجريبية • 42 دقيقة",
+        }
+        for number in range(1, 7)
+    ]
 
 
 def get_episode_stream_sources(episode_id: str, quality: str) -> dict[str, str]:
-    """جلب روابط جودات البث والتحميل الحقيقية تلقائياً من سيرفرات Consumet."""
-    import requests
+    """Mock hook for authorized playback/download sources.
+
+    Replace the demo URL with a signed URL from the user's legal cloud
+    provider. The frontend never scrapes, proxies, or bypasses source rules.
+    """
     quality_details = {
         "1080p": ("FHD", "380 MB"),
         "720p": ("HD", "190 MB"),
@@ -152,47 +140,21 @@ def get_episode_stream_sources(episode_id: str, quality: str) -> dict[str, str]:
     }
     normalized_quality = quality if quality in quality_details else "720p"
     label, size = quality_details[normalized_quality]
-    
-    watch_link = "https://googleapis.com"
-    download_link = "https://googleapis.com"
-    
-    try:
-        watch_res = requests.get(f"https://consumet.orgwatch/{episode_id}", timeout=6).json()
-        if watch_res.get("sources"):
-            for src in watch_res["sources"]:
-                if normalized_quality in src.get("quality", "") or src.get("quality") == "default":
-                    download_link = src.get("url")
-                    watch_link = watch_res["headers"]["Referer"] if watch_res.get("headers", {}).get("Referer") else src.get("url")
-                    break
-            if not watch_link and len(watch_res["sources"]) > 0:
-                download_link = watch_res["sources"].get("url")
-                watch_link = watch_res["headers"]["Referer"] if watch_res.get("headers", {}).get("Referer") else download_link
-    except:
-        try:
-            watch_res = requests.get(f"https://consumet.orgwatch/{episode_id}-episode-1", timeout=5).json()
-            if watch_res.get("sources"):
-                download_link = watch_res["sources"].get("url")
-                watch_link = watch_res["headers"]["Referer"] if watch_res.get("headers", {}).get("Referer") else download_link
-        except:
-            pass
-
     return {
         "episode_id": str(episode_id),
         "quality": normalized_quality,
         "label": label,
         "size": size,
-        "watch_url": watch_link,
-        "download_url": download_link,
+        "watch_url": MOCK_VIDEO_URL,
+        "download_url": MOCK_VIDEO_URL,
         "format": "mp4",
     }
-
 
 
 class CinemaData:
     def __init__(self) -> None:
         # The APK receives app_config.py during CI; local/web runs can use an env var.
-        self.api_key = "af9a9f29019a8416529a60c07110347d"
-
+        self.api_key = (os.getenv("TMDB_API_KEY", "").strip() or BUNDLED_TMDB_API_KEY.strip())
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": "Cinema-App/2.0"})
 
@@ -656,8 +618,11 @@ def main(page: ft.Page) -> None:
                 border_radius=12,
                 border_color=SURFACE_LIGHT,
                 focused_border_color=ACCENT,
-                on_change=change_season,
             )
+            # Flet 0.86+ exposes Dropdown selection through on_select.
+            # Assigning it after construction also keeps older APK runtimes
+            # from failing on an unsupported constructor keyword.
+            season_dropdown.on_select = change_season
             controls.append(season_dropdown)
 
         episode_list.on_scroll = render_episode_batch
