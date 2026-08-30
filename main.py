@@ -154,7 +154,7 @@ def get_episode_stream_sources(episode_id: str, quality: str) -> dict[str, str]:
 class CinemaData:
     def __init__(self) -> None:
         # The APK receives app_config.py during CI; local/web runs can use an env var.
-        self.api_key = (os.getenv("TMDB_API_KEY", "").strip() or BUNDLED_TMDB_API_KEY.strip())
+        self.api_key = "af9a9f29019a8416529a60c07110347d"
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": "Cinema-App/2.0"})
 
