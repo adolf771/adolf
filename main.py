@@ -33,6 +33,8 @@ ACCENT = "#F20D22"
 ACCENT_DARK = "#7D0A18"
 MAX_CATEGORY_PAGES = 3
 MAX_SEARCH_PAGES = 5
+SUPPORTED_QUALITIES = ("360p", "480p", "720p", "1080p")
+MOCK_VIDEO_URL = "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
 
 
 CATEGORY_LABELS = {
@@ -103,6 +105,40 @@ def format_item(item: dict[str, Any], kind: str | None = None) -> dict[str, Any]
         "overview": str(item.get("overview") or "لا يوجد وصف متوفر حالياً."),
         "kind": media_type,
         "streams": list(item.get("streams") or []),
+    }
+
+
+def api_get_servers(media_id: str | int | None) -> list[dict[str, str]]:
+    """Mock replacement for GET /api/get-servers.
+
+    Replace this function with the user's authorized catalog service later.
+    Every returned URL is intentionally a public demo stream for local UI testing.
+    """
+    media_key = str(media_id or "demo")
+    return [
+        {
+            "server_id": f"demo-cdn-{media_key}-1",
+            "server": "Demo CDN Alpha",
+            "quality": quality,
+            "format": "mp4",
+            "watch_url": MOCK_VIDEO_URL,
+            "download_url": MOCK_VIDEO_URL,
+        }
+        for quality in SUPPORTED_QUALITIES
+    ]
+
+
+def api_get_download_link(media_id: str | int | None, server_id: str, quality: str) -> dict[str, str]:
+    """Mock replacement for GET /api/get-download-link.
+
+    Replace the returned URL with a signed, authorized URL from the user's
+    storage provider. No proxying, scraping, or header bypass is performed here.
+    """
+    return {
+        "media_id": str(media_id or "demo"),
+        "server_id": server_id,
+        "quality": quality if quality in SUPPORTED_QUALITIES else "Auto",
+        "download_url": MOCK_VIDEO_URL,
     }
 
 
@@ -275,8 +311,13 @@ def main(page: ft.Page) -> None:
         url = value.strip().lower()
         return url.startswith(("https://", "http://")) and len(url) > 12
 
-    def open_download_link(stream: dict[str, Any]) -> None:
-        url = str(stream.get("url") or "").strip()
+    def open_download_link(item: dict[str, Any], stream: dict[str, Any]) -> None:
+        response = api_get_download_link(
+            item.get("id") or item.get("title"),
+            str(stream.get("server_id") or stream.get("server") or "custom"),
+            str(stream.get("quality") or "Auto"),
+        )
+        url = str(response.get("download_url") or stream.get("download_url") or stream.get("url") or "").strip()
         if not valid_stream_url(url):
             show_message("رابط التنزيل غير صالح.")
             return
@@ -284,7 +325,7 @@ def main(page: ft.Page) -> None:
         show_message("تم فتح رابط التنزيل المرخّص.")
 
     def show_player(item: dict[str, Any], stream: dict[str, Any]) -> None:
-        url = str(stream.get("url") or "").strip()
+        url = str(stream.get("watch_url") or stream.get("url") or "").strip()
         if not valid_stream_url(url):
             show_message("أضف رابط بث مرخّص بصيغة MP4 أو M3U8.")
             return
@@ -339,7 +380,7 @@ def main(page: ft.Page) -> None:
                 controls=[
                     ft.FilledButton(
                         "📥 تنزيل",
-                        on_click=lambda _event, selected=stream: open_download_link(selected),
+                        on_click=lambda _event, selected=stream: open_download_link(item, selected),
                         style=ft.ButtonStyle(bgcolor=ACCENT, color=TEXT),
                     ),
                     ft.OutlinedButton(
@@ -352,49 +393,79 @@ def main(page: ft.Page) -> None:
         page.update()
 
     def stream_panel(item: dict[str, Any]) -> ft.Column:
+        supplied_streams = item.get("streams") or []
         streams = [
-            stream for stream in item.get("streams", [])
-            if isinstance(stream, dict) and valid_stream_url(str(stream.get("url") or ""))
+            stream for stream in supplied_streams
+            if isinstance(stream, dict)
+            and valid_stream_url(str(stream.get("watch_url") or stream.get("url") or ""))
         ]
-        rows: list[ft.Control] = []
-        if streams:
-            rows.append(ft.Text("اختر السيرفر والجودة", color=TEXT, size=18, weight=ft.FontWeight.BOLD, text_align=ft.TextAlign.RIGHT))
-            for stream in streams:
-                rows.append(
-                    ft.Container(
-                        bgcolor=SURFACE_LIGHT,
-                        border_radius=14,
-                        padding=ft.Padding.symmetric(horizontal=12, vertical=10),
-                        content=ft.Row(
-                            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+        if not streams:
+            streams = api_get_servers(item.get("id") or item.get("title"))
+        streams = [stream for stream in streams if valid_stream_url(str(stream.get("watch_url") or stream.get("url") or ""))]
+
+        def stream_row(stream: dict[str, Any]) -> ft.Container:
+            return ft.Container(
+                bgcolor=SURFACE_LIGHT,
+                border_radius=14,
+                padding=ft.Padding.symmetric(horizontal=12, vertical=10),
+                content=ft.Row(
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    controls=[
+                        ft.Column(
+                            spacing=3,
                             controls=[
-                                ft.Column(
-                                    spacing=3,
-                                    controls=[
-                                        ft.Text(str(stream.get("quality") or "جودة تلقائية"), color="#FFD54A", weight=ft.FontWeight.BOLD),
-                                        ft.Text(str(stream.get("server") or "مصدر مرخّص"), color=MUTED, size=12),
-                                    ],
+                                ft.Text(str(stream.get("quality") or "جودة تلقائية"), color="#FFD54A", weight=ft.FontWeight.BOLD),
+                                ft.Text(str(stream.get("server") or "مصدر مرخّص"), color=MUTED, size=12),
+                                ft.Text(str(stream.get("format") or "mp4").upper(), color=MUTED, size=10),
+                            ],
+                        ),
+                        ft.Row(
+                            spacing=6,
+                            controls=[
+                                ft.FilledButton(
+                                    "▶️ مشاهدة",
+                                    on_click=lambda _event, selected=stream: show_player(item, selected),
+                                    style=ft.ButtonStyle(bgcolor=ACCENT, color=TEXT),
                                 ),
-                                ft.Row(
-                                    spacing=6,
-                                    controls=[
-                                        ft.FilledButton(
-                                            "▶️ مشاهدة",
-                                            on_click=lambda _event, selected=stream: show_player(item, selected),
-                                            style=ft.ButtonStyle(bgcolor=ACCENT, color=TEXT),
-                                        ),
-                                        ft.OutlinedButton(
-                                            "📥 تنزيل",
-                                            on_click=lambda _event, selected=stream: open_download_link(selected),
-                                        ),
-                                    ],
+                                ft.OutlinedButton(
+                                    "📥 تنزيل",
+                                    on_click=lambda _event, selected=stream: open_download_link(item, selected),
                                 ),
                             ],
                         ),
-                    )
-                )
-        else:
-            rows.append(ft.Text("لا يوجد مصدر بث مرخّص لهذا العمل بعد.", color=MUTED, text_align=ft.TextAlign.RIGHT))
+                    ],
+                ),
+            )
+
+        quality_options = [ft.DropdownOption(key="all", text="كل الجودات")]
+        quality_options.extend(ft.DropdownOption(key=quality, text=quality) for quality in SUPPORTED_QUALITIES)
+        quality_filter = ft.Dropdown(
+            label="تصفية حسب الجودة",
+            value="all",
+            options=quality_options,
+            text_align=ft.TextAlign.RIGHT,
+            border_radius=12,
+            border_color=SURFACE_LIGHT,
+            focused_border_color=ACCENT,
+        )
+        stream_list = ft.Column(spacing=8)
+
+        def refresh_streams(_event: ft.ControlEvent | None = None) -> None:
+            selected_quality = quality_filter.value or "all"
+            visible = streams if selected_quality == "all" else [
+                stream for stream in streams if str(stream.get("quality")) == selected_quality
+            ]
+            stream_list.controls = [stream_row(stream) for stream in visible]
+            if getattr(stream_list, "page", None):
+                stream_list.update()
+
+        quality_filter.on_change = refresh_streams
+        refresh_streams()
+        rows: list[ft.Control] = [
+            ft.Text("السيرفرات والجودات المتاحة", color=TEXT, size=18, weight=ft.FontWeight.BOLD, text_align=ft.TextAlign.RIGHT),
+            quality_filter,
+            stream_list,
+        ]
 
         custom_url = ft.TextField(
             label="رابط بث مرخّص MP4 أو M3U8",
@@ -404,11 +475,21 @@ def main(page: ft.Page) -> None:
             border_color=SURFACE_LIGHT,
             focused_border_color=ACCENT,
         )
-        custom_quality = ft.TextField(
-            label="الجودة",
-            hint_text="مثال: 720p",
+        custom_quality = ft.Dropdown(
+            label="الجودة المخصصة",
+            value="720p",
             width=130,
+            options=[ft.DropdownOption(key=quality, text=quality) for quality in SUPPORTED_QUALITIES],
             text_align=ft.TextAlign.CENTER,
+            border_radius=12,
+            border_color=SURFACE_LIGHT,
+            focused_border_color=ACCENT,
+        )
+        custom_server = ft.TextField(
+            label="اسم السيرفر",
+            value="مصدر مخصص",
+            width=180,
+            text_align=ft.TextAlign.RIGHT,
             border_radius=12,
             border_color=SURFACE_LIGHT,
             focused_border_color=ACCENT,
@@ -420,7 +501,7 @@ def main(page: ft.Page) -> None:
                 show_message("أدخل رابط بث مرخّص يبدأ بـ https:// أو http://")
                 return
             item.setdefault("streams", []).append({
-                "server": "مصدر مخصص",
+                "server": (custom_server.value or "مصدر مخصص").strip(),
                 "quality": (custom_quality.value or "Auto").strip(),
                 "url": url,
                 "format": "m3u8" if ".m3u8" in url.lower() else "mp4",
@@ -430,11 +511,14 @@ def main(page: ft.Page) -> None:
         rows.extend([
             ft.Divider(color=SURFACE_LIGHT, height=18),
             ft.Text("إضافة مصدر مخصص مرخّص", color=TEXT, size=16, weight=ft.FontWeight.BOLD, text_align=ft.TextAlign.RIGHT),
-            ft.Row(
-                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            ft.Column(
+                spacing=8,
                 controls=[
-                    custom_quality,
-                    ft.Container(expand=True, content=custom_url),
+                    ft.Row(
+                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                        controls=[custom_quality, custom_server],
+                    ),
+                    custom_url,
                 ],
             ),
             ft.FilledButton(
