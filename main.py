@@ -39,10 +39,11 @@ except ImportError:
 TMDB_BASE_URL = "https://api.themoviedb.org/3"
 TMDB_IMAGE_URL = "https://image.tmdb.org/t/p/w780"
 # The API key stays in Replit Secrets and is never committed to GitHub.
-TMDB_API_KEY = af9a9f29019a8416529a60c07110347d
-CONSUMET_BASE_URL = "https://consumet.org"
-
-
+TMDB_API_KEY = os.getenv("TMDB_API_KEY", "").strip()
+CONSUMET_BASE_URL = (
+    os.getenv("CONSUMET_BASE_URL", "https://dummy-url.com").strip().rstrip("/")
+    or "https://dummy-url.com"
+)
 VIDSRC_BASE_URL = os.getenv("VIDSRC_BASE_URL", "https://vidsrc.to").strip().rstrip("/")
 
 BACKGROUND = "#07090D"
@@ -219,7 +220,7 @@ class CinemaData:
     """Metadata and live-source client."""
 
     def __init__(self) -> None:
-        self.api_key = af9a9f29019a8416529a60c07110347d
+        self.api_key = TMDB_API_KEY
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": "Palestine-Movie-App/1.0"})
 
@@ -973,7 +974,7 @@ def main(page: ft.Page) -> None:
 
     def refresh(_event: ft.ControlEvent | None = None) -> None:
         if not data.tmdb_configured:
-            #notify("أضف TMDB_API_KEY إلى Secrets باستخدام قيمته الأصلية.")
+            notify("أضف TMDB_API_KEY إلى Secrets باستخدام قيمته الأصلية.")
             return
         notify("جارٍ تحميل المحتوى من TMDB...")
         try:
@@ -991,7 +992,7 @@ def main(page: ft.Page) -> None:
             render_home()
             return
         if not data.tmdb_configured:
-            #notify("أضف TMDB_API_KEY إلى Secrets للبحث.")
+            notify("أضف TMDB_API_KEY إلى Secrets للبحث.")
             return
         try:
             results = data.search(query)
