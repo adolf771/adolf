@@ -31,8 +31,10 @@ TEXT = "#F7F8FA"
 MUTED = "#AAB2BF"
 ACCENT = "#F20D22"
 ACCENT_DARK = "#7D0A18"
-MAX_CATEGORY_PAGES = 3
-MAX_SEARCH_PAGES = 5
+MAX_CATEGORY_PAGES = 100
+MAX_SEARCH_PAGES = 100
+PAGE_SIZE = 20
+EPISODE_BATCH_SIZE = 20
 MOCK_VIDEO_URL = "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
 
 
@@ -213,6 +215,46 @@ class CinemaData:
                 original_language = item.get("original_language")
                 items.append(format_item(item, "anime" if original_language == "ja" else "series"))
         return items
+
+    def fetch_details(self, item: dict[str, Any]) -> dict[str, Any]:
+        """Fetch the selected title's full TMDB record, including seasons."""
+        media_id = item.get("id")
+        if not media_id or not self.configured:
+            return {}
+        endpoint = f"movie/{media_id}" if item.get("kind") == "movie" else f"tv/{media_id}"
+        response = self.session.get(
+            f"{TMDB_BASE_URL}/{endpoint}",
+            params={"api_key": self.api_key, "language": "ar-SA"},
+            timeout=12,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        return payload if isinstance(payload, dict) else {}
+
+    def fetch_season_episodes(self, media_id: Any, season_number: int) -> list[dict[str, Any]]:
+        """Fetch one TV season from TMDB; the UI reveals it in batches."""
+        if not media_id or not self.configured:
+            return []
+        response = self.session.get(
+            f"{TMDB_BASE_URL}/tv/{media_id}/season/{season_number}",
+            params={"api_key": self.api_key, "language": "ar-SA"},
+            timeout=12,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        raw_episodes = payload.get("episodes", []) if isinstance(payload, dict) else []
+        entries: list[dict[str, Any]] = []
+        for episode in raw_episodes:
+            number = episode.get("episode_number")
+            if number is None:
+                continue
+            entries.append({
+                "episode_id": str(episode.get("id") or f"{media_id}-s{season_number}-e{number}"),
+                "episode_number": number,
+                "title": str(episode.get("name") or f"الحلقة {number}"),
+                "subtitle": f"الموسم {season_number} • الحلقة {number} • {episode.get('runtime') or 42} دقيقة",
+            })
+        return entries
 
 
 def main(page: ft.Page) -> None:
@@ -461,18 +503,16 @@ def main(page: ft.Page) -> None:
         )
         page.show_dialog(dialog)
 
-    def content_panel(item: dict[str, Any]) -> ft.Column:
+    def content_panel(
+        item: dict[str, Any],
+        initial_entries: list[dict[str, Any]],
+        season_numbers: list[int] | None = None,
+    ) -> ft.Column:
         is_serial = str(item.get("kind")) in {"series", "anime"}
-        entries: list[dict[str, Any]]
-        if is_serial:
-            entries = [dict(entry) for entry in get_content_episodes(str(item.get("title", "المحتوى")))]
-        else:
-            entries = [{
-                "episode_id": f"demo-{item.get('id') or item.get('title') or 'movie'}-movie",
-                "episode_number": 1,
-                "title": "الفيلم الكامل",
-                "subtitle": "فيلم • تشغيل مباشر",
-            }]
+        episode_entries = list(initial_entries)
+        visible_count = min(EPISODE_BATCH_SIZE, len(episode_entries))
+        season_numbers = season_numbers or []
+        season_dropdown: ft.Dropdown | None = None
 
         def content_row(entry: dict[str, Any]) -> ft.Container:
             return ft.Container(
@@ -486,8 +526,18 @@ def main(page: ft.Page) -> None:
                             spacing=3,
                             expand=True,
                             controls=[
-                                ft.Text(str(entry.get("title", "المحتوى")), color=TEXT, weight=ft.FontWeight.BOLD, text_align=ft.TextAlign.RIGHT),
-                                ft.Text(str(entry.get("subtitle", "")), color=MUTED, size=12, text_align=ft.TextAlign.RIGHT),
+                                ft.Text(
+                                    str(entry.get("title", "المحتوى")),
+                                    color=TEXT,
+                                    weight=ft.FontWeight.BOLD,
+                                    text_align=ft.TextAlign.RIGHT,
+                                ),
+                                ft.Text(
+                                    str(entry.get("subtitle", "")),
+                                    color=MUTED,
+                                    size=12,
+                                    text_align=ft.TextAlign.RIGHT,
+                                ),
                             ],
                         ),
                         ft.Row(
@@ -513,19 +563,88 @@ def main(page: ft.Page) -> None:
                 ),
             )
 
-        return ft.Column(
+        episode_list = ft.ListView(
+            height=520,
             spacing=10,
-            controls=[
-                ft.Row(
-                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                    controls=[
-                        ft.Text(f"{len(entries)} {'حلقة' if is_serial else 'جزء'}", color=MUTED, size=12),
-                        ft.Text("المشاهدة والتحميل", color=TEXT, size=18, weight=ft.FontWeight.BOLD, text_align=ft.TextAlign.RIGHT),
-                    ],
-                ),
-                *[content_row(entry) for entry in entries],
-            ],
+            padding=ft.Padding.only(top=4, bottom=8),
         )
+
+        def render_episode_batch(
+            _event: ft.OnScrollEvent | None = None,
+            update_control: bool = True,
+        ) -> None:
+            nonlocal visible_count
+            if _event is not None:
+                pixels = float(getattr(_event, "pixels", 0) or 0)
+                extent = float(getattr(_event, "max_scroll_extent", 0) or 0)
+                if extent > 0 and pixels < extent - 100:
+                    return
+                if visible_count < len(episode_entries):
+                    visible_count = min(visible_count + EPISODE_BATCH_SIZE, len(episode_entries))
+            episode_list.controls = [content_row(entry) for entry in episode_entries[:visible_count]]
+            if visible_count < len(episode_entries):
+                episode_list.controls.append(
+                    ft.Text("مرر للأسفل لتحميل حلقات إضافية…", color=MUTED, size=12, text_align=ft.TextAlign.CENTER)
+                )
+            if update_control:
+                episode_list.update()
+
+        def change_season(event: ft.ControlEvent) -> None:
+            nonlocal episode_entries, visible_count
+            if not season_dropdown or not season_dropdown.value:
+                return
+            try:
+                status.value = "جارٍ تحميل حلقات الموسم..."
+                page.update()
+                episode_entries = data_source.fetch_season_episodes(item.get("id"), int(season_dropdown.value))
+                if not episode_entries:
+                    status.value = "لا توجد حلقات متاحة لهذا الموسم."
+                else:
+                    status.value = f"تم تحميل {len(episode_entries)} حلقة — مرر للأسفل للمزيد."
+                visible_count = min(EPISODE_BATCH_SIZE, len(episode_entries))
+                render_episode_batch()
+                page.update()
+            except (requests.RequestException, ValueError, KeyError) as error:
+                status.value = f"تعذر تحميل حلقات الموسم: {error}"
+                page.update()
+
+        controls: list[ft.Control] = []
+        if is_serial and season_numbers:
+            season_dropdown = ft.Dropdown(
+                label="اختر الموسم",
+                value=str(season_numbers[0]),
+                options=[ft.DropdownOption(key=str(number), text=f"الموسم {number}") for number in season_numbers],
+                text_align=ft.TextAlign.RIGHT,
+                border_radius=12,
+                border_color=SURFACE_LIGHT,
+                focused_border_color=ACCENT,
+                on_change=change_season,
+            )
+            controls.append(season_dropdown)
+
+        episode_list.on_scroll = render_episode_batch
+        render_episode_batch(update_control=False)
+        controls.extend([
+            ft.Row(
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                controls=[
+                    ft.Text(
+                        f"{len(episode_entries)} {'حلقة' if is_serial else 'فيلم'}",
+                        color=MUTED,
+                        size=12,
+                    ),
+                    ft.Text(
+                        "الحلقات" if is_serial else "الفيلم",
+                        color=TEXT,
+                        size=18,
+                        weight=ft.FontWeight.BOLD,
+                        text_align=ft.TextAlign.RIGHT,
+                    ),
+                ],
+            ),
+            episode_list,
+        ])
+        return ft.Column(spacing=10, controls=controls)
 
     def load_more_category(key: str, event: ft.OnScrollEvent) -> None:
         if (
@@ -565,6 +684,36 @@ def main(page: ft.Page) -> None:
     def open_details(item: dict[str, Any]) -> None:
         nonlocal current_view
         current_view = "details"
+        is_serial = str(item.get("kind")) in {"series", "anime"}
+        detail_entries: list[dict[str, Any]] = []
+        season_numbers: list[int] = []
+
+        if is_serial and data_source.configured and item.get("id"):
+            try:
+                details = data_source.fetch_details(item)
+                season_numbers = [
+                    int(season.get("season_number"))
+                    for season in details.get("seasons", [])
+                    if season.get("season_number") is not None and int(season.get("season_number")) > 0
+                ]
+                if season_numbers:
+                    detail_entries = data_source.fetch_season_episodes(item.get("id"), season_numbers[0])
+                if details.get("overview"):
+                    item["overview"] = details["overview"]
+            except (requests.RequestException, ValueError, KeyError) as error:
+                status.value = f"تعذر تحميل الحلقات من TMDB: {error}"
+
+        if not detail_entries:
+            if is_serial:
+                detail_entries = [dict(entry) for entry in get_content_episodes(str(item.get("title", "المحتوى")))]
+            else:
+                detail_entries = [{
+                    "episode_id": f"demo-{item.get('id') or item.get('title') or 'movie'}-movie",
+                    "episode_number": 1,
+                    "title": "الفيلم الكامل",
+                    "subtitle": "فيلم • تشغيل مباشر",
+                }]
+
         content.controls.clear()
         content.controls.extend([
             ft.Row(
@@ -586,7 +735,7 @@ def main(page: ft.Page) -> None:
                         ft.Text(str(item.get("title", "بدون عنوان")), color=TEXT, size=26, weight=ft.FontWeight.BOLD, text_align=ft.TextAlign.RIGHT),
                         ft.Text(f"{item.get('rating', '—')} ★  •  {item.get('subtitle', '')}", color="#FFD54A", size=14, text_align=ft.TextAlign.RIGHT),
                         ft.Text(str(item.get("overview", "لا يوجد وصف متوفر حالياً.")), color="#D5D9E0", size=15, text_align=ft.TextAlign.RIGHT),
-                        content_panel(item),
+                        content_panel(item, detail_entries, season_numbers),
                     ],
                 ),
             ),
@@ -739,7 +888,7 @@ def main(page: ft.Page) -> None:
                 item for item in more_results if str(item.get("id")) not in existing_ids
             )
             search_page = next_page
-            search_has_more = len(more_results) >= 20 and search_page < MAX_SEARCH_PAGES
+            search_has_more = len(more_results) >= PAGE_SIZE and search_page < MAX_SEARCH_PAGES
             render_search_results()
         except (requests.RequestException, ValueError, KeyError) as error:
             status.value = f"تعذر تحميل نتائج إضافية: {error}"
@@ -758,7 +907,7 @@ def main(page: ft.Page) -> None:
         search_page = 1
         try:
             search_results = data_source.search(query, page=1) if data_source.configured else search_local(query)
-            search_has_more = data_source.configured and len(search_results) >= 20
+            search_has_more = data_source.configured and len(search_results) >= PAGE_SIZE
             status.value = f"نتائج البحث عن: {query}"
         except requests.RequestException as error:
             search_results = search_local(query)
@@ -834,6 +983,12 @@ def main(page: ft.Page) -> None:
     )
     content.on_scroll = load_more_search
     render_home()
+    if data_source.configured:
+        status.value = "جارٍ تحميل المحتوى من TMDB..."
+        page.update()
+        page.run_thread(load_from_tmdb)
+    else:
+        status.value = "أضف TMDB_API_KEY إلى Secrets لعرض الكتالوج الحقيقي."
 
 
 if __name__ == "__main__":
