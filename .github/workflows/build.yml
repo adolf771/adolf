@@ -37,7 +37,7 @@ jobs:
           python -m pip check
 
       - name: Verify Python source
-        run: python -m compileall --quiet main.py
+        run: python -m compileall -q main.py
 
       - name: Build Android APK
         env:
