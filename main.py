@@ -40,10 +40,8 @@ TMDB_BASE_URL = "https://api.themoviedb.org/3"
 TMDB_IMAGE_URL = "https://image.tmdb.org/t/p/w780"
 # The API key stays in Replit Secrets and is never committed to GitHub.
 TMDB_API_KEY = af9a9f29019a8416529a60c07110347d
-CONSUMET_BASE_URL = (
-    os.getenv("CONSUMET_BASE_URL", "https://dummy-url.com").strip().rstrip("/")
-    or "https://dummy-url.com"
-)
+CONSUMET_BASE_URL = "https://consumet.org"
+
 
 VIDSRC_BASE_URL = os.getenv("VIDSRC_BASE_URL", "https://vidsrc.to").strip().rstrip("/")
 
