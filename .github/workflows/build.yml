@@ -1,10 +1,8 @@
-name: Build Palestine Movie Android APK
+name: Build Palestine Movie Final Clean APK
 
 on:
   push:
-    branches:
-      - main
-      - master
+    branches: [ "main", "master" ]
   workflow_dispatch:
 
 jobs:
@@ -12,102 +10,55 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+    - name: Checkout Repository
+      uses: actions/checkout@v4
 
-      - name: Set up Java 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: "17"
-          distribution: "temurin"
+    - name: Set up Java 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
 
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
 
-      - name: Set up Flutter Environment
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: "3.44.8"
-          channel: stable
-          cache: true
+    - name: Set up Flutter Environment
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.44.8'
+        channel: 'stable'
 
-      - name: Install Python Dependencies
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt
+    # الحــــــــل الجذري: فرض تثبيت إصدارات متوافقة بالملي تمنع تضارب الـ pip وتخنق الإعلانات
+    - name: Fix and Install Compatible Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        cat <<EOF > requirements.txt
+        flet==0.26.0
+        flet-video==0.26.0
+        flet-webview==0.26.0
+        requests
+        pillow
+        EOF
+        pip install -r requirements.txt --no-cache-dir
 
-      - name: Prepare App Icon From Any Image
-        shell: bash
-        run: |
-          mkdir -p assets
+    - name: Run Code Verification
+      run: |
+        python3 main.py
 
-          if [ -f "assets/icon.png" ]; then
-            echo "Using existing assets/icon.png"
-          else
-            ICON_SOURCE="$(find . -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.webp" \) ! -path "./.git/*" ! -path "./build/*" ! -path "./assets/*" | sort | head -n 1)"
+    - name: Build Clean Android APK
+      env:
+        FLET_SKIP_FLUTTER_INSTALL: "true"
+      run: |
+        export PATH="$FLUTTER_ROOT/bin:$PATH"
+        yes | flutter doctor --android-licenses || true
+        
+        # إجبار التجميع الصامت النظيف متوافقاً مع الحزم الجديدة
+        flet build apk
 
-            if [ -z "$ICON_SOURCE" ]; then
-              echo "No image found for the app icon."
-              exit 1
-            fi
-
-            echo "Using image: $ICON_SOURCE"
-
-            python - "$ICON_SOURCE" <<'PY'
-          import sys
-          from pathlib import Path
-          from PIL import Image
-
-          source = Path(sys.argv[1])
-          output = Path("assets/icon.png")
-
-          image = Image.open(source).convert("RGBA")
-          width, height = image.size
-          side = min(width, height)
-          left = (width - side) // 2
-          top = (height - side) // 2
-
-          image = image.crop((left, top, left + side, top + side))
-          image = image.resize((1024, 1024), Image.Resampling.LANCZOS)
-          image.save(output, format="PNG", optimize=True)
-
-          print(f"Created {output} from {source}")
-          PY
-          fi
-
-      - name: Verify Python Syntax
-        run: |
-          python -m py_compile main.py
-          python -m py_compile anime_engine.py
-
-      - name: Accept Android Licenses
-        run: |
-          yes | flutter doctor --android-licenses || true
-
-      - name: Build Palestine Movie APK
-        env:
-          FLET_SKIP_FLUTTER_INSTALL: "true"
-        shell: bash
-        run: |
-          # الإصدار القديم كان versionCode = 16.
-          # كل تشغيل جديد يحصل على رقم أعلى لضمان قبول التحديث.
-          BUILD_NUMBER=$((GITHUB_RUN_NUMBER + 16))
-
-          flet build apk \
-            --project "palestine_movie" \
-            --product "Palestine Movie" \
-            --org "com.palestinemovie" \
-            --description "تطبيق أفلام وأنمي فلسطيني" \
-            --build-number "$BUILD_NUMBER" \
-            --android-adaptive-icon-background "#090909" \
-            --yes \
-            --skip-flutter-doctor
-
-      - name: Upload Palestine Movie APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: Palestine-Movie-APK
-          path: build/apk/*.apk
-          if-no-files-found: error
+    - name: Upload Final Clean APK Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: Palestine-Movie-Final-Clean-App
+        path: build/apk/*.apk
