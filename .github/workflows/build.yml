@@ -5,6 +5,10 @@ on:
     branches: ["main", "master"]
   workflow_dispatch:
 
+concurrency:
+  group: palestine-movie-android-build
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -30,7 +34,7 @@ jobs:
           flutter-version: "3.44.8"
           channel: stable
 
-      - name: Install pinned Python dependencies
+      - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
           python -m pip install --requirement requirements.txt --no-cache-dir
@@ -39,16 +43,24 @@ jobs:
       - name: Verify Python source
         run: python -m compileall -q main.py
 
-      - name: Build Android APK
+      - name: Build signed Android APK
         env:
           FLET_SKIP_FLUTTER_INSTALL: "true"
         run: |
           export PATH="$FLUTTER_ROOT/bin:$PATH"
           yes | flutter doctor --android-licenses || true
-          flet build apk
+
+          flet build apk \
+            --yes \
+            --build-version 1.0.2 \
+            --build-number 18 \
+            --android-signing-key-store debug.keystore \
+            --android-signing-key-store-password android \
+            --android-signing-key-password android \
+            --android-signing-key-alias androiddebugkey
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Palestine-Movie-App
+          name: Palestine-Movie-App-1.0.2
           path: build/apk/*.apk
