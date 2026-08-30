@@ -6,6 +6,7 @@ requires-python = ">=3.10,<3.14"
 dependencies = [
     "flet==0.86.5",
     "flet-video==0.86.5",
+    "flet-webview==0.86.5",
     "flet-embed==0.24.1",
     "requests>=2.32.3,<3",
     "Pillow>=10.4.0,<13",
