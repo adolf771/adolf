@@ -1055,4 +1055,9 @@ def main(page: ft.Page) -> None:
 
 
 if __name__ == "__main__":
-    ft.run(main)
+    ft.run(
+        main,
+        host="0.0.0.0",
+        port=int(os.getenv("PORT", "5000")),
+        view=ft.AppView.WEB_BROWSER,
+    )
