@@ -109,39 +109,23 @@ def format_item(item: dict[str, Any], kind: str | None = None) -> dict[str, Any]
 
 
 def api_get_servers(media_id: str | int | None) -> list[dict[str, str]]:
-    import requests
-    try:
-        anime_title = str(media_id or "bleach")
-        
-        search_res = requests.get(f"https://consumet.org{anime_title}", timeout=5).json()
-        if not search_res.get("results"):
-            return []
-        anime_id = search_res["results"]["id"]
-        
-        info_res = requests.get(f"https://consumet.orginfo/{anime_id}", timeout=5).json()
-        if not info_res.get("episodes"):
-            return []
-        first_ep_id = info_res["episodes"][0]["id"]
-        
-        watch_res = requests.get(f"https://consumet.orgwatch/{first_ep_id}", timeout=5).json()
-        
-        actual_sources = []
-        if watch_res.get("sources"):
-            for index, src in enumerate(watch_res["sources"]):
-                video_url = watch_res.get("headers", {}).get("Referer") if watch_res.get("headers", {}).get("Referer") else src.get("url")
-                actual_sources.append({
-                    "server_id": f"consumet-cdn-{index}",
-                    "server": "سيرفر عالمي سريع",
-                    "quality": src.get("quality", "default"),
-                    "format": "mp4",
-                    "watch_url": video_url,
-                    "download_url": src.get("url")
-                })
-        return actual_sources
-    except:
-        return []
+    """Mock replacement for GET /api/get-servers.
 
-
+    Replace this function with the user's authorized catalog service later.
+    Every returned URL is intentionally a public demo stream for local UI testing.
+    """
+    media_key = str(media_id or "demo")
+    return [
+        {
+            "server_id": f"demo-cdn-{media_key}-1",
+            "server": "Demo CDN Alpha",
+            "quality": quality,
+            "format": "mp4",
+            "watch_url": MOCK_VIDEO_URL,
+            "download_url": MOCK_VIDEO_URL,
+        }
+        for quality in SUPPORTED_QUALITIES
+    ]
 
 
 def api_get_download_link(media_id: str | int | None, server_id: str, quality: str) -> dict[str, str]:
@@ -466,17 +450,23 @@ def main(page: ft.Page) -> None:
         )
         stream_list = ft.Column(spacing=8)
 
-        def refresh_streams(_event: ft.ControlEvent | None = None) -> None:
+        def refresh_streams(
+            _event: ft.ControlEvent | None = None,
+            update_control: bool = True,
+        ) -> None:
             selected_quality = quality_filter.value or "all"
             visible = streams if selected_quality == "all" else [
                 stream for stream in streams if str(stream.get("quality")) == selected_quality
             ]
             stream_list.controls = [stream_row(stream) for stream in visible]
-            if getattr(stream_list, "page", None):
+            if update_control:
                 stream_list.update()
 
         quality_filter.on_change = refresh_streams
-        refresh_streams()
+        # Populate controls before attaching the parent tree to the page.
+        # Calling update() at this stage raises Flet's "must be added to the
+        # page first" RuntimeError.
+        refresh_streams(update_control=False)
         rows: list[ft.Control] = [
             ft.Text("السيرفرات والجودات المتاحة", color=TEXT, size=18, weight=ft.FontWeight.BOLD, text_align=ft.TextAlign.RIGHT),
             quality_filter,
