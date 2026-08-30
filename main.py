@@ -16,6 +16,11 @@ try:
 except ImportError:
     BUNDLED_TMDB_API_KEY = ""
 
+try:
+    import flet_video as ftv
+except ImportError:
+    ftv = None
+
 
 TMDB_BASE_URL = "https://api.themoviedb.org/3"
 TMDB_IMAGE_URL = "https://image.tmdb.org/t/p/w780"
@@ -97,6 +102,7 @@ def format_item(item: dict[str, Any], kind: str | None = None) -> dict[str, Any]
         "backdrop": item.get("backdrop_path") or item.get("poster_path"),
         "overview": str(item.get("overview") or "لا يوجد وصف متوفر حالياً."),
         "kind": media_type,
+        "streams": list(item.get("streams") or []),
     }
 
 
@@ -265,6 +271,181 @@ def main(page: ft.Page) -> None:
             ],
         )
 
+    def valid_stream_url(value: str) -> bool:
+        url = value.strip().lower()
+        return url.startswith(("https://", "http://")) and len(url) > 12
+
+    def open_download_link(stream: dict[str, Any]) -> None:
+        url = str(stream.get("url") or "").strip()
+        if not valid_stream_url(url):
+            show_message("رابط التنزيل غير صالح.")
+            return
+        page.launch_url(url)
+        show_message("تم فتح رابط التنزيل المرخّص.")
+
+    def show_player(item: dict[str, Any], stream: dict[str, Any]) -> None:
+        url = str(stream.get("url") or "").strip()
+        if not valid_stream_url(url):
+            show_message("أضف رابط بث مرخّص بصيغة MP4 أو M3U8.")
+            return
+
+        if ftv is not None:
+            player: ft.Control = ftv.Video(
+                expand=True,
+                autoplay=True,
+                playlist=[ftv.VideoMedia(url)],
+            )
+        else:
+            player = ft.Container(
+                expand=True,
+                alignment=ft.Alignment.CENTER,
+                bgcolor="#050608",
+                content=ft.Column(
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                    alignment=ft.MainAxisAlignment.CENTER,
+                    controls=[
+                        ft.Icon(ft.Icons.PLAY_CIRCLE_OUTLINE, color=ACCENT, size=52),
+                        ft.Text("ثبّت flet-video لتفعيل المشغل داخل التطبيق.", color=TEXT, text_align=ft.TextAlign.CENTER),
+                        ft.Text("الرابط محفوظ كمصدر مرخّص ويمكن فتحه خارجيًا.", color=MUTED, size=12, text_align=ft.TextAlign.CENTER),
+                    ],
+                ),
+            )
+
+        content.controls.clear()
+        content.controls.extend([
+            ft.Row(
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                controls=[
+                    ft.IconButton(icon=ft.Icons.ARROW_BACK, icon_color=TEXT, tooltip="رجوع", on_click=lambda _event: open_details(item)),
+                    ft.Text("المشغل", color=TEXT, size=24, weight=ft.FontWeight.BOLD),
+                ],
+            ),
+            ft.Container(
+                height=310,
+                bgcolor="#050608",
+                border_radius=20,
+                clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
+                content=player,
+            ),
+            ft.Text(
+                f"{item.get('title', 'المحتوى')}  •  {stream.get('quality', 'جودة تلقائية')}  •  {stream.get('server', 'مصدر مرخّص')}",
+                color=TEXT,
+                size=16,
+                weight=ft.FontWeight.BOLD,
+                text_align=ft.TextAlign.RIGHT,
+            ),
+            ft.Row(
+                alignment=ft.MainAxisAlignment.CENTER,
+                controls=[
+                    ft.FilledButton(
+                        "📥 تنزيل",
+                        on_click=lambda _event, selected=stream: open_download_link(selected),
+                        style=ft.ButtonStyle(bgcolor=ACCENT, color=TEXT),
+                    ),
+                    ft.OutlinedButton(
+                        "اختيار جودة أخرى",
+                        on_click=lambda _event: open_details(item),
+                    ),
+                ],
+            ),
+        ])
+        page.update()
+
+    def stream_panel(item: dict[str, Any]) -> ft.Column:
+        streams = [
+            stream for stream in item.get("streams", [])
+            if isinstance(stream, dict) and valid_stream_url(str(stream.get("url") or ""))
+        ]
+        rows: list[ft.Control] = []
+        if streams:
+            rows.append(ft.Text("اختر السيرفر والجودة", color=TEXT, size=18, weight=ft.FontWeight.BOLD, text_align=ft.TextAlign.RIGHT))
+            for stream in streams:
+                rows.append(
+                    ft.Container(
+                        bgcolor=SURFACE_LIGHT,
+                        border_radius=14,
+                        padding=ft.Padding.symmetric(horizontal=12, vertical=10),
+                        content=ft.Row(
+                            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                            controls=[
+                                ft.Column(
+                                    spacing=3,
+                                    controls=[
+                                        ft.Text(str(stream.get("quality") or "جودة تلقائية"), color="#FFD54A", weight=ft.FontWeight.BOLD),
+                                        ft.Text(str(stream.get("server") or "مصدر مرخّص"), color=MUTED, size=12),
+                                    ],
+                                ),
+                                ft.Row(
+                                    spacing=6,
+                                    controls=[
+                                        ft.FilledButton(
+                                            "▶️ مشاهدة",
+                                            on_click=lambda _event, selected=stream: show_player(item, selected),
+                                            style=ft.ButtonStyle(bgcolor=ACCENT, color=TEXT),
+                                        ),
+                                        ft.OutlinedButton(
+                                            "📥 تنزيل",
+                                            on_click=lambda _event, selected=stream: open_download_link(selected),
+                                        ),
+                                    ],
+                                ),
+                            ],
+                        ),
+                    )
+                )
+        else:
+            rows.append(ft.Text("لا يوجد مصدر بث مرخّص لهذا العمل بعد.", color=MUTED, text_align=ft.TextAlign.RIGHT))
+
+        custom_url = ft.TextField(
+            label="رابط بث مرخّص MP4 أو M3U8",
+            hint_text="https://example.com/video.m3u8",
+            text_align=ft.TextAlign.RIGHT,
+            border_radius=12,
+            border_color=SURFACE_LIGHT,
+            focused_border_color=ACCENT,
+        )
+        custom_quality = ft.TextField(
+            label="الجودة",
+            hint_text="مثال: 720p",
+            width=130,
+            text_align=ft.TextAlign.CENTER,
+            border_radius=12,
+            border_color=SURFACE_LIGHT,
+            focused_border_color=ACCENT,
+        )
+
+        def add_custom_stream(_event: ft.ControlEvent) -> None:
+            url = (custom_url.value or "").strip()
+            if not valid_stream_url(url):
+                show_message("أدخل رابط بث مرخّص يبدأ بـ https:// أو http://")
+                return
+            item.setdefault("streams", []).append({
+                "server": "مصدر مخصص",
+                "quality": (custom_quality.value or "Auto").strip(),
+                "url": url,
+                "format": "m3u8" if ".m3u8" in url.lower() else "mp4",
+            })
+            open_details(item)
+
+        rows.extend([
+            ft.Divider(color=SURFACE_LIGHT, height=18),
+            ft.Text("إضافة مصدر مخصص مرخّص", color=TEXT, size=16, weight=ft.FontWeight.BOLD, text_align=ft.TextAlign.RIGHT),
+            ft.Row(
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                controls=[
+                    custom_quality,
+                    ft.Container(expand=True, content=custom_url),
+                ],
+            ),
+            ft.FilledButton(
+                "إضافة المصدر",
+                icon=ft.Icons.ADD_LINK,
+                on_click=add_custom_stream,
+                style=ft.ButtonStyle(bgcolor=ACCENT_DARK, color=TEXT),
+            ),
+        ])
+        return ft.Column(spacing=10, controls=rows)
+
     def load_more_category(key: str, event: ft.OnScrollEvent) -> None:
         if (
             not data_source.configured
@@ -324,12 +505,7 @@ def main(page: ft.Page) -> None:
                         ft.Text(str(item.get("title", "بدون عنوان")), color=TEXT, size=26, weight=ft.FontWeight.BOLD, text_align=ft.TextAlign.RIGHT),
                         ft.Text(f"{item.get('rating', '—')} ★  •  {item.get('subtitle', '')}", color="#FFD54A", size=14, text_align=ft.TextAlign.RIGHT),
                         ft.Text(str(item.get("overview", "لا يوجد وصف متوفر حالياً.")), color="#D5D9E0", size=15, text_align=ft.TextAlign.RIGHT),
-                        ft.FilledButton(
-                            "شاهد الآن",
-                            icon=ft.Icons.PLAY_ARROW,
-                            on_click=lambda _event: show_message("تم فتح صفحة المشاهدة — أضف روابط الحلقات من مصدر المحتوى."),
-                            style=ft.ButtonStyle(bgcolor=ACCENT, color=TEXT),
-                        ),
+                        stream_panel(item),
                     ],
                 ),
             ),
