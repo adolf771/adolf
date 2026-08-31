@@ -9,9 +9,13 @@ concurrency:
   group: palestine-movie-android-build
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - name: Checkout repository
@@ -41,26 +45,63 @@ jobs:
           python -m pip check
 
       - name: Verify Python source
-        run: python -m compileall -q main.py
+        run: |
+          python -m compileall -q main.py
 
-      - name: Build signed Android APK
+      - name: Build Android APK
         env:
           FLET_SKIP_FLUTTER_INSTALL: "true"
         run: |
           export PATH="$FLUTTER_ROOT/bin:$PATH"
+
           yes | flutter doctor --android-licenses || true
 
           flet build apk \
             --yes \
             --build-version 1.0.2 \
-            --build-number 18 \
-            --android-signing-key-store android-release.jks \
-            --android-signing-key-store-password android \
-            --android-signing-key-password android \
-            --android-signing-key-alias androiddebugkey
+            --build-number 18
 
-      - name: Upload APK artifact
+      - name: Sign APK with stable key
+        run: |
+          SDK_DIR="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Android/Sdk}}"
+
+          APKSIGNER="$(find "$SDK_DIR/build-tools" \
+            -type f \
+            -name apksigner \
+            2>/dev/null | sort -V | tail -n 1)"
+
+          if [ -z "$APKSIGNER" ]; then
+            echo "apksigner was not found"
+            exit 1
+          fi
+
+          APK="$(find build/apk \
+            -maxdepth 1 \
+            -type f \
+            -name "*.apk" \
+            ! -name "*-signed.apk" \
+            | head -n 1)"
+
+          if [ -z "$APK" ]; then
+            echo "APK was not found"
+            exit 1
+          fi
+
+          SIGNED_APK="build/apk/Palestine-Movie-App-1.0.2-signed.apk"
+
+          "$APKSIGNER" sign \
+            --ks android-release.jks \
+            --ks-key-alias androiddebugkey \
+            --ks-pass pass:android \
+            --key-pass pass:android \
+            --out "$SIGNED_APK" \
+            "$APK"
+
+          "$APKSIGNER" verify --verbose "$SIGNED_APK"
+
+      - name: Upload signed APK
         uses: actions/upload-artifact@v4
         with:
           name: Palestine-Movie-App-1.0.2
-          path: build/apk/*.apk
+          path: build/apk/*-signed.apk
+          if-no-files-found: error
