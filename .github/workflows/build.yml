@@ -19,6 +19,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
+    defaults:
+      run:
+        working-directory: adolf_source
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -29,12 +33,14 @@ jobs:
           java-version: "17"
           distribution: "temurin"
           cache: gradle
+          cache-dependency-path: adolf_source/**/gradle-wrapper.properties
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: pip
+          cache-dependency-path: adolf_source/requirements.txt
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -64,19 +70,12 @@ jobs:
 
           export PATH="$FLUTTER_ROOT/bin:$PATH"
 
-          echo "Flutter version:"
           flutter --version
-
-          echo "Dart version:"
           dart --version
 
-          echo "Android licenses:"
           yes | flutter doctor --android-licenses || true
-
-          echo "Flutter doctor:"
           flutter doctor -v || true
 
-          echo "Flet version:"
           flet --version
 
       - name: Build Android APK
@@ -90,8 +89,6 @@ jobs:
 
           rm -rf build/apk
 
-          echo "Building Android APK..."
-
           flet build apk \
             --yes \
             --no-rich-output \
@@ -100,7 +97,6 @@ jobs:
             --build-version 1.0.2 \
             --build-number 18
 
-          echo "APK files generated:"
           find build/apk \
             -maxdepth 1 \
             -type f \
@@ -111,19 +107,20 @@ jobs:
         run: |
           set -e
 
-          APK="$(find build/apk \
-            -maxdepth 1 \
-            -type f \
-            -name "*.apk" \
-            ! -name "*-signed.apk" \
-            | head -n 1)"
+          APK="$(
+            find build/apk \
+              -maxdepth 1 \
+              -type f \
+              -name "*.apk" \
+              ! -name "*-signed.apk" \
+              | head -n 1
+          )"
 
           if [ -z "$APK" ]; then
             echo "APK was not generated"
             exit 1
           fi
 
-          echo "Generated APK:"
           ls -lh "$APK"
 
       - name: Sign APK with stable key
@@ -160,15 +157,15 @@ jobs:
             exit 1
           fi
 
-          if [ ! -f android-release.jks ]; then
-            echo "android-release.jks was not found"
+          if [ ! -f ../android-release.jks ]; then
+            echo "../android-release.jks was not found"
             exit 1
           fi
 
           SIGNED_APK="build/apk/Palestine-Movie-App-1.0.2-signed.apk"
 
           "$APKSIGNER" sign \
-            --ks android-release.jks \
+            --ks ../android-release.jks \
             --ks-key-alias androiddebugkey \
             --ks-pass pass:android \
             --key-pass pass:android \
@@ -177,13 +174,12 @@ jobs:
 
           "$APKSIGNER" verify --verbose "$SIGNED_APK"
 
-          echo "Signed APK:"
           ls -lh "$SIGNED_APK"
 
       - name: Upload signed APK
         uses: actions/upload-artifact@v4
         with:
           name: Palestine-Movie-App-1.0.2
-          path: build/apk/*-signed.apk
+          path: adolf_source/build/apk/*-signed.apk
           if-no-files-found: error
           retention-days: 14
