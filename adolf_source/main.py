@@ -1,16 +1,9 @@
 """Palestine Movie App - Flet mobile client.
 
 The app uses TMDB only for metadata and Consumet for live playback sources.
-No sample or hard-coded video URL is used.  Set the following environment
-variables in the Replit Secrets / build environment:
-
-    TMDB_PROXY_URL    public URL of the server-side TMDB proxy
-    CONSUMET_BASE_URL  optional override for a self-hosted Consumet instance
-    VIDSRC_BASE_URL    optional Vidsrc embed host (defaults to vidsrc.to)
-
-Consumet availability is intentionally not checked during startup.  The
-configured placeholder lets the built-in fallback path continue to Vidsrc
-when no Consumet server is available.
+No sample or hard-coded video URL is used.
+TMDB metadata uses the TMDB_API_KEY environment secret, and live playback uses
+the fixed Consumet service URL defined below.
 """
 
 from __future__ import annotations
@@ -37,7 +30,7 @@ except ImportError:
 
 
 TMDB_IMAGE_URL = "https://image.tmdb.org/t/p/w780"
-TMDB_API_KEY = "af9a9f29019a8416529a60c07110347d"
+TMDB_API_KEY = os.getenv("TMDB_API_KEY", "").strip()
 try:
     from build_config import TMDB_PROXY_URL as BUILD_TMDB_PROXY_URL
 except ImportError:
@@ -49,10 +42,7 @@ TMDB_PROXY_URL = (
     or BUILD_TMDB_PROXY_URL.strip().rstrip("/")
     or "https://3fb1fd16-ba1b-4fff-94f8-d76aed79fae6-00-1xm79kvuvclwo.pike.replit.dev/api"
 )
-CONSUMET_BASE_URL = (
-    os.getenv("CONSUMET_BASE_URL", "https://dummy-url.com").strip().rstrip("/")
-    or "https://dummy-url.com"
-)
+CONSUMET_BASE_URL = "https://consumet.org"
 VIDSRC_BASE_URL = os.getenv("VIDSRC_BASE_URL", "https://vidsrc.to").strip().rstrip("/")
 
 BACKGROUND = "#07090D"
@@ -236,12 +226,6 @@ class CinemaData:
     @property
     def tmdb_configured(self) -> bool:
         return bool(self.proxy_url)
-
-    @property
-    def consumet_configured(self) -> bool:
-        # Do not probe or validate Consumet. Requests are attempted lazily and
-        # live_sources() falls back when the placeholder/server is unavailable.
-        return True
 
     def _json(
         self,
@@ -772,7 +756,7 @@ def main(page: ft.Page) -> None:
                 pass
 
         entries: list[dict[str, Any]] = []
-        if item.get("kind") == "anime" and data.consumet_configured:
+        if item.get("kind") == "anime":
             try:
                 entries = data.gogoanime_episodes(str(item.get("title", "")))
             except (requests.RequestException, ValueError, KeyError):
