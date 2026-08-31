@@ -37,6 +37,7 @@ except ImportError:
 
 
 TMDB_IMAGE_URL = "https://image.tmdb.org/t/p/w780"
+TMDB_API_KEY = "af9a9f29019a8416529a60c07110347d"
 try:
     from build_config import TMDB_PROXY_URL as BUILD_TMDB_PROXY_URL
 except ImportError:
