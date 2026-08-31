@@ -1,3 +1,7 @@
 app_config.py
 __pycache__/
 *.pyc
+
+# Generated during APK build; contains only the public proxy URL.
+build_config.py
+.env
