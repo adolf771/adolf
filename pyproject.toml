@@ -9,6 +9,8 @@ dependencies = [
     "flet-webview==0.86.5",
     "requests",
     "pillow",
+    "fastapi",
+    "uvicorn[standard]",
 ]
 
 [tool.flet]
