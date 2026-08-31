@@ -46,6 +46,7 @@ except ImportError:
 TMDB_PROXY_URL = (
     os.getenv("TMDB_PROXY_URL", "").strip().rstrip("/")
     or BUILD_TMDB_PROXY_URL.strip().rstrip("/")
+    or "https://3fb1fd16-ba1b-4fff-94f8-d76aed79fae6-00-1xm79kvuvclwo.pike.replit.dev/api"
 )
 CONSUMET_BASE_URL = (
     os.getenv("CONSUMET_BASE_URL", "https://dummy-url.com").strip().rstrip("/")
