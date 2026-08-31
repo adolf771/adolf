@@ -32,8 +32,6 @@ jobs:
         with:
           java-version: "17"
           distribution: "temurin"
-          cache: gradle
-          cache-dependency-path: adolf_source/**/gradle-wrapper.properties
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
@@ -70,12 +68,19 @@ jobs:
 
           export PATH="$FLUTTER_ROOT/bin:$PATH"
 
+          echo "Flutter version:"
           flutter --version
+
+          echo "Dart version:"
           dart --version
 
+          echo "Android licenses:"
           yes | flutter doctor --android-licenses || true
+
+          echo "Flutter doctor:"
           flutter doctor -v || true
 
+          echo "Flet version:"
           flet --version
 
       - name: Build Android APK
@@ -89,6 +94,8 @@ jobs:
 
           rm -rf build/apk
 
+          echo "Building Android APK..."
+
           flet build apk \
             --yes \
             --no-rich-output \
@@ -96,6 +103,8 @@ jobs:
             --verbose \
             --build-version 1.0.2 \
             --build-number 18
+
+          echo "APK files generated:"
 
           find build/apk \
             -maxdepth 1 \
@@ -121,6 +130,7 @@ jobs:
             exit 1
           fi
 
+          echo "Generated APK:"
           ls -lh "$APK"
 
       - name: Sign APK with stable key
@@ -174,6 +184,7 @@ jobs:
 
           "$APKSIGNER" verify --verbose "$SIGNED_APK"
 
+          echo "Signed APK:"
           ls -lh "$SIGNED_APK"
 
       - name: Upload signed APK
