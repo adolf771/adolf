@@ -2,7 +2,9 @@ name: Build Palestine Movie App
 
 on:
   push:
-    branches: ["main", "master"]
+    branches:
+      - main
+      - master
   workflow_dispatch:
 
 concurrency:
@@ -26,54 +28,88 @@ jobs:
         with:
           java-version: "17"
           distribution: "temurin"
+          cache: gradle
 
-      - name: Set up Python
+      - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: pip
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: "3.44.8"
           channel: stable
+          cache: true
 
       - name: Install Python dependencies
         run: |
+          set -e
+
           python -m pip install --upgrade pip
           python -m pip install --requirement requirements.txt --no-cache-dir
+          python -m pip install --no-cache-dir "flet-cli==0.86.5"
+
           python -m pip check
 
       - name: Verify Python source
         run: |
+          set -e
           python -m compileall -q main.py
+
+      - name: Verify Flutter and Android setup
+        run: |
+          set -e
+
+          export PATH="$FLUTTER_ROOT/bin:$PATH"
+
+          echo "Flutter version:"
+          flutter --version
+
+          echo "Dart version:"
+          dart --version
+
+          echo "Android licenses:"
+          yes | flutter doctor --android-licenses || true
+
+          echo "Flutter doctor:"
+          flutter doctor -v || true
+
+          echo "Flet version:"
+          flet --version
 
       - name: Build Android APK
         env:
-          FLET_SKIP_FLUTTER_INSTALL: "true"
+          FLET_CLI_NO_RICH_OUTPUT: "true"
+          FLET_CLI_SKIP_FLUTTER_DOCTOR: "true"
         run: |
+          set -e
+
           export PATH="$FLUTTER_ROOT/bin:$PATH"
 
-          yes | flutter doctor --android-licenses || true
+          rm -rf build/apk
+
+          echo "Building Android APK..."
 
           flet build apk \
             --yes \
+            --no-rich-output \
+            --skip-flutter-doctor \
+            --verbose \
             --build-version 1.0.2 \
             --build-number 18
 
-      - name: Sign APK with stable key
-        run: |
-          SDK_DIR="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Android/Sdk}}"
-
-          APKSIGNER="$(find "$SDK_DIR/build-tools" \
+          echo "APK files generated:"
+          find build/apk \
+            -maxdepth 1 \
             -type f \
-            -name apksigner \
-            2>/dev/null | sort -V | tail -n 1)"
+            -name "*.apk" \
+            -print
 
-          if [ -z "$APKSIGNER" ]; then
-            echo "apksigner was not found"
-            exit 1
-          fi
+      - name: Check generated APK
+        run: |
+          set -e
 
           APK="$(find build/apk \
             -maxdepth 1 \
@@ -83,7 +119,49 @@ jobs:
             | head -n 1)"
 
           if [ -z "$APK" ]; then
-            echo "APK was not found"
+            echo "APK was not generated"
+            exit 1
+          fi
+
+          echo "Generated APK:"
+          ls -lh "$APK"
+
+      - name: Sign APK with stable key
+        run: |
+          set -e
+
+          SDK_DIR="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Android/Sdk}}"
+
+          APKSIGNER="$(
+            find "$SDK_DIR/build-tools" \
+              -type f \
+              -name apksigner \
+              2>/dev/null \
+              | sort -V \
+              | tail -n 1
+          )"
+
+          if [ -z "$APKSIGNER" ]; then
+            echo "apksigner was not found"
+            exit 1
+          fi
+
+          APK="$(
+            find build/apk \
+              -maxdepth 1 \
+              -type f \
+              -name "*.apk" \
+              ! -name "*-signed.apk" \
+              | head -n 1
+          )"
+
+          if [ -z "$APK" ]; then
+            echo "Unsigned APK was not found"
+            exit 1
+          fi
+
+          if [ ! -f android-release.jks ]; then
+            echo "android-release.jks was not found"
             exit 1
           fi
 
@@ -99,9 +177,13 @@ jobs:
 
           "$APKSIGNER" verify --verbose "$SIGNED_APK"
 
+          echo "Signed APK:"
+          ls -lh "$SIGNED_APK"
+
       - name: Upload signed APK
         uses: actions/upload-artifact@v4
         with:
           name: Palestine-Movie-App-1.0.2
           path: build/apk/*-signed.apk
           if-no-files-found: error
+          retention-days: 14
