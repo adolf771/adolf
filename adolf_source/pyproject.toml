@@ -1,0 +1,28 @@
+[project]
+name = "palestine-movie-app"
+version = "1.0.2"
+description = "Palestine Movie App - أفلام ومسلسلات وأنمي"
+requires-python = ">=3.10,<3.14"
+dependencies = [
+    "flet==0.86.5",
+    "flet-video==0.86.5",
+    "flet-webview==0.86.5",
+    "requests",
+    "pillow",
+    "fastapi",
+    "uvicorn[standard]",
+]
+
+[tool.flet]
+product = "Palestine Movie App"
+org = "com.palestinemovie"
+company = "Palestine Movie App"
+copyright = "Copyright (C) 2026 Palestine Movie App"
+build_number = 18
+
+[tool.flet.android]
+permissions = [
+    "android.permission.INTERNET",
+    "android.permission.READ_MEDIA_VIDEO",
+]
+adaptive_icon_background = "#0B3D6E"
