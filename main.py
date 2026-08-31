@@ -4,7 +4,7 @@ The app uses TMDB only for metadata and Consumet for live playback sources.
 No sample or hard-coded video URL is used.  Set the following environment
 variables in the Replit Secrets / build environment:
 
-    TMDB_API_KEY       the existing TMDB key supplied by the app owner
+    TMDB_PROXY_URL    public URL of the server-side TMDB proxy
     CONSUMET_BASE_URL  optional override for a self-hosted Consumet instance
     VIDSRC_BASE_URL    optional Vidsrc embed host (defaults to vidsrc.to)
 
@@ -36,10 +36,17 @@ except ImportError:
     fwv = None
 
 
-TMDB_BASE_URL = "https://api.themoviedb.org/3"
 TMDB_IMAGE_URL = "https://image.tmdb.org/t/p/w780"
-# The API key stays in Replit Secrets and is never committed to GitHub.
-TMDB_API_KEY = os.getenv("TMDB_API_KEY", "").strip()
+try:
+    from build_config import TMDB_PROXY_URL as BUILD_TMDB_PROXY_URL
+except ImportError:
+    BUILD_TMDB_PROXY_URL = ""
+
+# The APK contains only this public URL; the TMDB credential stays server-side.
+TMDB_PROXY_URL = (
+    os.getenv("TMDB_PROXY_URL", "").strip().rstrip("/")
+    or BUILD_TMDB_PROXY_URL.strip().rstrip("/")
+)
 CONSUMET_BASE_URL = (
     os.getenv("CONSUMET_BASE_URL", "https://dummy-url.com").strip().rstrip("/")
     or "https://dummy-url.com"
@@ -220,13 +227,13 @@ class CinemaData:
     """Metadata and live-source client."""
 
     def __init__(self) -> None:
-        self.api_key = TMDB_API_KEY
+        self.proxy_url = TMDB_PROXY_URL
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": "Palestine-Movie-App/1.0"})
 
     @property
     def tmdb_configured(self) -> bool:
-        return bool(self.api_key)
+        return bool(self.proxy_url)
 
     @property
     def consumet_configured(self) -> bool:
@@ -244,84 +251,34 @@ class CinemaData:
         response.raise_for_status()
         return response.json()
 
-    def tmdb(
-        self,
-        endpoint: str,
-        params: dict[str, Any] | None = None,
-        page: int = 1,
-    ) -> list[dict[str, Any]]:
+    def tmdb_proxy(self, path: str, params: dict[str, Any] | None = None) -> Any:
         if not self.tmdb_configured:
-            return []
-        request_params: dict[str, Any] = {
-            "api_key": self.api_key,
-            "language": "ar-SA",
-            "page": page,
-        }
-        if params:
-            request_params.update(params)
-        payload = self._json(f"{TMDB_BASE_URL}/{endpoint}", request_params)
-        return payload.get("results", []) if isinstance(payload, dict) else []
+            return {}
+        return self._json(
+            f"{self.proxy_url}/{path.lstrip('/')}",
+            params=params,
+            timeout=20,
+        )
 
     def consumet(self, path: str, params: dict[str, Any] | None = None) -> Any:
         url = f"{CONSUMET_BASE_URL}/{path.lstrip('/')}"
         return self._json(url, params=params, timeout=20)
 
     def load_catalog(self) -> dict[str, list[dict[str, Any]]]:
-        return {
-            "movies": [
-                format_item(item, "movie")
-                for item in self.tmdb("movie/popular")
-            ],
-            "series": [
-                format_item(item, "series")
-                for item in self.tmdb("tv/popular")
-            ],
-            "anime": [
-                format_item(item, "anime")
-                for item in self.tmdb(
-                    "discover/tv",
-                    {
-                        "with_genres": 16,
-                        "with_original_language": "ja",
-                        "sort_by": "popularity.desc",
-                    },
-                )
-            ],
-            "cartoons": [
-                format_item(item, "cartoon")
-                for item in self.tmdb(
-                    "discover/tv",
-                    {
-                        "with_genres": 16,
-                        "without_original_language": "ja",
-                        "sort_by": "popularity.desc",
-                    },
-                )
-            ],
-        }
+        payload = self.tmdb_proxy("catalog")
+        return payload if isinstance(payload, dict) else {}
 
     def search(self, query: str) -> list[dict[str, Any]]:
-        items: list[dict[str, Any]] = []
-        for item in self.tmdb(
-            "search/multi",
-            {"query": query, "include_adult": False},
-        ):
-            media_type = item.get("media_type")
-            if media_type == "movie":
-                items.append(format_item(item, "movie"))
-            elif media_type == "tv":
-                kind = "anime" if item.get("original_language") == "ja" else "series"
-                items.append(format_item(item, kind))
-        return items
+        payload = self.tmdb_proxy("search", {"q": query})
+        return payload if isinstance(payload, list) else []
 
     def details(self, item: dict[str, Any]) -> dict[str, Any]:
         media_id = item.get("id")
         if not media_id or not self.tmdb_configured:
             return {}
         endpoint = "movie" if item.get("kind") == "movie" else "tv"
-        payload = self._json(
-            f"{TMDB_BASE_URL}/{endpoint}/{media_id}",
-            {"api_key": self.api_key, "language": "ar-SA"},
+        payload = self.tmdb_proxy(
+            f"details/{endpoint}/{quote(str(media_id), safe='')}"
         )
         return payload if isinstance(payload, dict) else {}
 
@@ -332,31 +289,10 @@ class CinemaData:
     ) -> list[dict[str, Any]]:
         if not media_id or not self.tmdb_configured:
             return []
-        payload = self._json(
-            f"{TMDB_BASE_URL}/tv/{media_id}/season/{season_number}",
-            {"api_key": self.api_key, "language": "ar-SA"},
+        payload = self.tmdb_proxy(
+            f"season/{quote(str(media_id), safe='')}/{season_number}"
         )
-        episodes = payload.get("episodes", []) if isinstance(payload, dict) else []
-        return [
-            {
-                "episode_id": str(
-                    episode.get("id")
-                    or f"{media_id}-s{season_number}-e{episode.get('episode_number')}"
-                ),
-                "episode_number": episode.get("episode_number", 1),
-                "season_number": season_number,
-                "title": str(
-                    episode.get("name")
-                    or f"الحلقة {episode.get('episode_number', 1)}"
-                ),
-                "subtitle": (
-                    f"الموسم {season_number} • الحلقة "
-                    f"{episode.get('episode_number', 1)}"
-                ),
-            }
-            for episode in episodes
-            if episode.get("episode_number") is not None
-        ]
+        return payload if isinstance(payload, list) else []
 
     def gogoanime_episodes(self, title: str) -> list[dict[str, Any]]:
         """Search Gogoanime through the configured Consumet instance."""
@@ -974,7 +910,7 @@ def main(page: ft.Page) -> None:
 
     def refresh(_event: ft.ControlEvent | None = None) -> None:
         if not data.tmdb_configured:
-            notify("أضف TMDB_API_KEY إلى Secrets باستخدام قيمته الأصلية.")
+            notify("خدمة الكتالوج غير مهيأة حالياً.")
             return
         notify("جارٍ تحميل المحتوى من TMDB...")
         try:
@@ -992,7 +928,7 @@ def main(page: ft.Page) -> None:
             render_home()
             return
         if not data.tmdb_configured:
-            notify("أضف TMDB_API_KEY إلى Secrets للبحث.")
+            notify("خدمة البحث غير مهيأة حالياً.")
             return
         try:
             results = data.search(query)
