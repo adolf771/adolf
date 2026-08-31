@@ -54,7 +54,7 @@ jobs:
             --yes \
             --build-version 1.0.2 \
             --build-number 18 \
-            --android-signing-key-store debug.keystore \
+            --android-signing-key-store android-release.jks \
             --android-signing-key-store-password android \
             --android-signing-key-password android \
             --android-signing-key-alias androiddebugkey
