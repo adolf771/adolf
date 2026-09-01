@@ -40,7 +40,7 @@ except ImportError:
 TMDB_PROXY_URL = (
     os.getenv("TMDB_PROXY_URL", "").strip().rstrip("/")
     or BUILD_TMDB_PROXY_URL.strip().rstrip("/")
-    or "https://3fb1fd16-ba1b-4fff-94f8-d76aed79fae6-00-1xm79kvuvclwo.pike.replit.dev/api"
+    or "https://palestine-movie-api--m46560834.replit.app/api"
 )
 CONSUMET_BASE_URL = "https://consumet.org"
 VIDSRC_BASE_URL = os.getenv("VIDSRC_BASE_URL", "https://vidsrc.to").strip().rstrip("/")
