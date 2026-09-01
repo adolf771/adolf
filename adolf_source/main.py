@@ -945,7 +945,7 @@ def main(page: ft.Page) -> None:
                         spacing=12,
                         controls=[
                             ft.Container(
-                                alignment=ft.alignment.center,
+                                alignment=ft.alignment.Alignment(0, 0),
                                 content=item_image(item, 240, 320),
                             ),
                             ft.Text(
