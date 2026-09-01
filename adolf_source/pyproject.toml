@@ -16,7 +16,7 @@ product = "Palestine Movie App"
 org = "com.palestinemovie"
 company = "Palestine Movie App"
 copyright = "Copyright (C) 2026 Palestine Movie App"
-build_number = 19
+build_number = 18
 
 [tool.flet.android]
 permissions = [
