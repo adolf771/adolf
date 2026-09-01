@@ -37,7 +37,7 @@ except ImportError:
 
 
 TMDB_IMAGE_URL = "https://image.tmdb.org/t/p/w780"
-TMDB_API_KEY = "af9a9f29019a8416529a60c07110347d"
+TMDB_API_KEY = os.getenv("TMDB_API_KEY", "").strip()
 try:
     from build_config import TMDB_PROXY_URL as BUILD_TMDB_PROXY_URL
 except ImportError:
@@ -47,7 +47,7 @@ except ImportError:
 TMDB_PROXY_URL = (
     os.getenv("TMDB_PROXY_URL", "").strip().rstrip("/")
     or BUILD_TMDB_PROXY_URL.strip().rstrip("/")
-    or "https://3fb1fd16-ba1b-4fff-94f8-d76aed79fae6-00-1xm79kvuvclwo.pike.replit.dev/api"
+    or "https://palestine-movie-api--m46560834.replit.app/api"
 )
 CONSUMET_BASE_URL = "https://consumet.org"
 VIDSRC_BASE_URL = os.getenv("VIDSRC_BASE_URL", "https://vidsrc.to").strip().rstrip("/")
