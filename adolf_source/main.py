@@ -590,7 +590,7 @@ def main(page: ft.Page) -> None:
         return ft.Container(
             bgcolor=ACCENT if active_category == value else SURFACE_LIGHT,
             border_radius=18,
-            padding=ft.padding.symmetric(horizontal=16, vertical=9),
+            padding=ft.Padding(left=16, top=9, right=16, bottom=9),
             on_click=lambda _event, chosen=value: select_category(chosen),
             content=ft.Text(label, color=TEXT, size=13, weight=ft.FontWeight.BOLD),
         )
@@ -988,9 +988,9 @@ def main(page: ft.Page) -> None:
         selected = current_view == view
         return ft.Container(expand=True, padding=8, border_radius=12, bgcolor="#332F0D16" if selected else None, on_click=lambda _event, chosen=view: render_view(chosen), content=ft.Column(horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=2, controls=[ft.Icon(icon, color=ACCENT if selected else MUTED, size=22), ft.Text(label, color=TEXT if selected else MUTED, size=11)]))
 
-    header = ft.Container(bgcolor=BACKGROUND, padding=ft.padding.only(left=16, right=16, top=18, bottom=8), content=ft.Column(spacing=12, controls=[ft.Row(alignment=ft.MainAxisAlignment.SPACE_BETWEEN, controls=[ft.Text("Palestine Movie 🇵🇸", color=TEXT, size=25, weight=ft.FontWeight.BOLD), ft.Icon(ft.Icons.LOCAL_MOVIES, color=ACCENT, size=30)]), ft.Row(spacing=8, controls=[search, ft.IconButton(icon=ft.Icons.SEARCH, icon_color=TEXT, bgcolor=ACCENT, tooltip="بحث", on_click=lambda _event: page.run_task(perform_search_async, search.value or ""))])]))
-    bottom_nav = ft.Container(bgcolor=SURFACE, padding=ft.padding.only(left=8, right=8, top=7, bottom=12), content=ft.Row(spacing=4, controls=[nav_button("الرئيسية", ft.Icons.HOME, "home"), nav_button("البحث", ft.Icons.SEARCH, "search"), nav_button("التنزيلات", ft.Icons.DOWNLOAD, "downloads"), nav_button("المفضلة", ft.Icons.FAVORITE, "favorites")]))
-    page.add(ft.Column(expand=True, spacing=0, controls=[header, ft.Container(expand=True, padding=ft.padding.symmetric(horizontal=16), content=content), bottom_nav]))
+    header = ft.Container(bgcolor=BACKGROUND, padding=ft.Padding(left=16, top=18, right=16, bottom=8), content=ft.Column(spacing=12, controls=[ft.Row(alignment=ft.MainAxisAlignment.SPACE_BETWEEN, controls=[ft.Text("Palestine Movie 🇵🇸", color=TEXT, size=25, weight=ft.FontWeight.BOLD), ft.Icon(ft.Icons.LOCAL_MOVIES, color=ACCENT, size=30)]), ft.Row(spacing=8, controls=[search, ft.IconButton(icon=ft.Icons.SEARCH, icon_color=TEXT, bgcolor=ACCENT, tooltip="بحث", on_click=lambda _event: page.run_task(perform_search_async, search.value or ""))])]))
+    bottom_nav = ft.Container(bgcolor=SURFACE, padding=ft.Padding(left=8, top=7, right=8, bottom=12), content=ft.Row(spacing=4, controls=[nav_button("الرئيسية", ft.Icons.HOME, "home"), nav_button("البحث", ft.Icons.SEARCH, "search"), nav_button("التنزيلات", ft.Icons.DOWNLOAD, "downloads"), nav_button("المفضلة", ft.Icons.FAVORITE, "favorites")]))
+    page.add(ft.Column(expand=True, spacing=0, controls=[header, ft.Container(expand=True, padding=ft.Padding(left=16, top=0, right=16, bottom=0), content=content), bottom_nav]))
     render_home()
     page.run_task(load_catalog_async)
 
