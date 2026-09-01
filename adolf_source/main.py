@@ -652,21 +652,41 @@ def main(page: ft.Page) -> None:
         )
         page.update()
 
-    def choose_source(
+    def resolve_sources(
         item: dict[str, Any],
         entry: dict[str, Any],
-    ) -> None:
-        notify("جارٍ البحث عن مصدر بث حي...")
+    ) -> list[dict[str, Any]]:
+        notify("جارٍ البحث عن مصادر البث...")
         try:
-            sources = data.live_sources(item, entry)
+            return data.live_sources(item, entry)
         except (
             ApiConfigurationError,
             requests.RequestException,
             ValueError,
             KeyError,
         ) as error:
-            notify(f"تعذر استخراج رابط حي: {error}")
+            notify(f"تعذر استخراج مصادر البث: {error}")
+            return []
+
+    def download_source(source: dict[str, Any]) -> None:
+        url = str(source.get("url", "")).strip()
+        if not url.startswith(("https://", "http://")):
+            notify("رابط التحميل غير صالح.")
             return
+        if source.get("is_m3u8"):
+            notify("هذه الجودة بث HLS وليست ملفًا مباشرًا للتنزيل.")
+            return
+        try:
+            page.launch_url(url)
+            notify(f"تم فتح رابط التحميل بجودة {source.get('quality', 'auto')}.")
+        except Exception as error:
+            notify(f"تعذر فتح رابط التحميل: {error}")
+
+    def choose_source(
+        item: dict[str, Any],
+        entry: dict[str, Any],
+    ) -> None:
+        sources = resolve_sources(item, entry)
         playable = [source for source in sources if source.get("playable")]
         if not playable:
             vidsrc_source = next(
@@ -678,18 +698,88 @@ def main(page: ft.Page) -> None:
                 return
             notify("لم يتوفر مصدر بث حي لهذا المحتوى حالياً.")
             return
+
+        def play_chosen(_event: ft.ControlEvent, chosen: dict[str, Any]) -> None:
+            page.pop_dialog()
+            show_player(item, chosen, entry)
+
+        def download_chosen(_event: ft.ControlEvent, chosen: dict[str, Any]) -> None:
+            page.pop_dialog()
+            download_source(chosen)
+
         dialog = ft.AlertDialog(
             modal=True,
             bgcolor=SURFACE,
-            title=ft.Text("اختر المصدر والجودة", color=TEXT),
+            title=ft.Text("اختر الجودة أو الإجراء", color=TEXT),
             content=ft.Column(
                 tight=True,
+                scroll=ft.ScrollMode.AUTO,
+                controls=[
+                    ft.Container(
+                        bgcolor=SURFACE_LIGHT,
+                        border_radius=12,
+                        padding=10,
+                        content=ft.Column(
+                            spacing=6,
+                            controls=[
+                                ft.Text(
+                                    source_title(source),
+                                    color=TEXT,
+                                    weight=ft.FontWeight.BOLD,
+                                    text_align=ft.TextAlign.RIGHT,
+                                ),
+                                ft.Row(
+                                    alignment=ft.MainAxisAlignment.END,
+                                    controls=[
+                                        ft.FilledButton(
+                                            "مشاهدة",
+                                            on_click=lambda event, chosen=source: play_chosen(event, chosen),
+                                            style=ft.ButtonStyle(bgcolor=ACCENT, color=TEXT),
+                                        ),
+                                        ft.TextButton(
+                                            "تحميل",
+                                            on_click=lambda event, chosen=source: download_chosen(event, chosen),
+                                        ),
+                                    ],
+                                ),
+                            ],
+                        ),
+                    )
+                    for source in playable
+                ],
+            ),
+            actions=[
+                ft.TextButton(
+                    "إلغاء",
+                    on_click=lambda _event: page.pop_dialog(),
+                )
+            ],
+        )
+        page.show_dialog(dialog)
+
+    def choose_download_source(
+        item: dict[str, Any],
+        entry: dict[str, Any],
+    ) -> None:
+        sources = resolve_sources(item, entry)
+        playable = [source for source in sources if source.get("playable")]
+        if not playable:
+            notify("لم يتوفر رابط تنزيل مباشر لهذا المحتوى حالياً.")
+            return
+
+        dialog = ft.AlertDialog(
+            modal=True,
+            bgcolor=SURFACE,
+            title=ft.Text("اختر جودة التحميل", color=TEXT),
+            content=ft.Column(
+                tight=True,
+                scroll=ft.ScrollMode.AUTO,
                 controls=[
                     ft.FilledButton(
                         source_title(source),
                         on_click=lambda _event, chosen=source: (
                             page.pop_dialog(),
-                            show_player(item, chosen, entry),
+                            download_source(chosen),
                         ),
                         style=ft.ButtonStyle(bgcolor=ACCENT, color=TEXT),
                     )
@@ -710,31 +800,32 @@ def main(page: ft.Page) -> None:
             bgcolor=SURFACE_LIGHT,
             border_radius=12,
             padding=10,
-            content=ft.Row(
-                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+            content=ft.Column(
+                spacing=7,
                 controls=[
-                    ft.IconButton(
-                        icon=ft.Icons.PLAY_CIRCLE_FILLED,
-                        icon_color=ACCENT,
-                        icon_size=30,
-                        tooltip="تشغيل مباشر",
-                        on_click=lambda _event: choose_source(item, entry),
+                    ft.Text(
+                        str(entry.get("title", "الفيلم الكامل")),
+                        color=TEXT,
+                        weight=ft.FontWeight.BOLD,
+                        text_align=ft.TextAlign.RIGHT,
                     ),
-                    ft.Column(
-                        expand=True,
-                        spacing=3,
+                    ft.Text(
+                        str(entry.get("subtitle", "")),
+                        color=MUTED,
+                        size=12,
+                        text_align=ft.TextAlign.RIGHT,
+                    ),
+                    ft.Row(
+                        alignment=ft.MainAxisAlignment.END,
                         controls=[
-                            ft.Text(
-                                str(entry.get("title", "الفيلم الكامل")),
-                                color=TEXT,
-                                weight=ft.FontWeight.BOLD,
-                                text_align=ft.TextAlign.RIGHT,
+                            ft.FilledButton(
+                                "مشاهدة",
+                                on_click=lambda _event: choose_source(item, entry),
+                                style=ft.ButtonStyle(bgcolor=ACCENT, color=TEXT),
                             ),
-                            ft.Text(
-                                str(entry.get("subtitle", "")),
-                                color=MUTED,
-                                size=12,
-                                text_align=ft.TextAlign.RIGHT,
+                            ft.TextButton(
+                                "تحميل",
+                                on_click=lambda _event: choose_download_source(item, entry),
                             ),
                         ],
                     ),
@@ -755,34 +846,82 @@ def main(page: ft.Page) -> None:
             except (requests.RequestException, ValueError, KeyError):
                 pass
 
-        entries: list[dict[str, Any]] = []
-        if item.get("kind") == "anime":
-            try:
-                entries = data.gogoanime_episodes(str(item.get("title", "")))
-            except (requests.RequestException, ValueError, KeyError):
-                entries = []
-        elif item.get("kind") in {"series", "anime"}:
-            seasons = [
-                season.get("season_number")
-                for season in details.get("seasons", [])
-                if season.get("season_number", 0) > 0
-            ]
-            if seasons:
+        seasons: list[int] = []
+        if item.get("kind") in {"series", "cartoon"}:
+            for season in details.get("seasons", []):
                 try:
-                    entries = data.season_episodes(item.get("id"), int(seasons[0]))
-                except (requests.RequestException, ValueError, KeyError):
-                    entries = []
+                    season_number = int(season.get("season_number", 0))
+                except (TypeError, ValueError):
+                    season_number = 0
+                if season_number > 0:
+                    seasons.append(season_number)
 
-        if not entries:
-            entries = [
-                {
-                    "episode_id": str(item.get("id") or item.get("title", "")),
-                    "episode_number": 1,
-                    "season_number": 1,
-                    "title": "الفيلم الكامل" if item.get("kind") == "movie" else "الحلقة 1",
-                    "subtitle": "مصدر حي من Consumet عند الضغط على تشغيل",
-                }
-            ]
+        def fallback_entry() -> dict[str, Any]:
+            return {
+                "episode_id": str(item.get("id") or item.get("title", "")),
+                "episode_number": 1,
+                "season_number": 1,
+                "title": "الفيلم الكامل" if item.get("kind") == "movie" else "الحلقة 1",
+                "subtitle": "مصدر حي من Consumet عند الضغط على تشغيل",
+            }
+
+        def load_entries(season_number: int | None = None) -> list[dict[str, Any]]:
+            if item.get("kind") == "anime":
+                return data.gogoanime_episodes(str(item.get("title", "")))
+            if item.get("kind") in {"series", "cartoon"} and season_number:
+                return data.season_episodes(item.get("id"), season_number)
+            return [fallback_entry()]
+
+        episodes_column = ft.Column(spacing=8)
+
+        def set_episode_entries(entries: list[dict[str, Any]]) -> None:
+            if not entries:
+                entries = [fallback_entry()]
+            episodes_column.controls.clear()
+            episodes_column.controls.extend(
+                [episode_row(item, entry) for entry in entries]
+            )
+
+        initial_season = seasons[0] if seasons else None
+        try:
+            set_episode_entries(load_entries(initial_season))
+        except (requests.RequestException, ValueError, KeyError):
+            set_episode_entries([])
+
+        def change_season(event: ft.ControlEvent) -> None:
+            try:
+                season_number = int(event.control.value)
+                set_episode_entries(load_entries(season_number))
+                notify(f"تم تحميل حلقات الموسم {season_number}.")
+                page.update()
+            except (TypeError, ValueError, requests.RequestException, KeyError) as error:
+                notify(f"تعذر تحميل الموسم: {error}")
+
+        detail_controls: list[ft.Control] = [
+            ft.Text(
+                "الحلقات والمشاهدة",
+                color=TEXT,
+                size=18,
+                weight=ft.FontWeight.BOLD,
+                text_align=ft.TextAlign.RIGHT,
+            )
+        ]
+        if seasons:
+            detail_controls.append(
+                ft.Dropdown(
+                    label="اختر الموسم",
+                    value=str(initial_season),
+                    options=[
+                        ft.dropdown.Option(str(season), f"الموسم {season}")
+                        for season in seasons
+                    ],
+                    on_change=change_season,
+                    bgcolor=SURFACE_LIGHT,
+                    color=TEXT,
+                    label_style=ft.TextStyle(color=MUTED),
+                )
+            )
+        detail_controls.append(episodes_column)
 
         content.controls.clear()
         content.controls.extend(
@@ -827,17 +966,7 @@ def main(page: ft.Page) -> None:
                                 size=15,
                                 text_align=ft.TextAlign.RIGHT,
                             ),
-                            ft.Text(
-                                "الحلقات والمشاهدة",
-                                color=TEXT,
-                                size=18,
-                                weight=ft.FontWeight.BOLD,
-                                text_align=ft.TextAlign.RIGHT,
-                            ),
-                            ft.Column(
-                                spacing=8,
-                                controls=[episode_row(item, entry) for entry in entries],
-                            ),
+                            *detail_controls,
                         ],
                     ),
                 ),
@@ -968,6 +1097,7 @@ def main(page: ft.Page) -> None:
         )
     )
     render_home()
+    refresh()
 
 
 if __name__ == "__main__":
