@@ -12,24 +12,33 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # 2. إعداد بايثون وتثبيت المكتبات المساعدة للأنمي
+      # 2. إعداد بيئة جافا (مطلوبة لبناء الأندرويد)
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      # 3. إعداد بيئة بايثون
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
-      # 3. تثبيت مفسر الطلبات والمكتبات الأساسية
+      # 4. تثبيت المكتبات وأداة Flet
       - name: Install Dependencies
         run: |
-          pip install requests
+          pip install --upgrade pip
+          pip install flet requests
 
-      # 4. استخدام أداة البناء الرسمية والذكية لـ Flet (تتخطى مشاكل الأسئلة والـ Flutter تلقائياً)
-      - name: Build Flet APK using Official Action
-        uses: flet-dev/flet-build-action@v1
-        with:
-          target: apk
-
-      # 5. رفع ملف الـ APK لتنزيله على هاتفك مباشرة
+      # 5. تشغيل البناء المباشر والآمن لـ Flet
+      - name: Build Android APK
+        run: |
+          flet build apk
+        env:
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+          
+      # 6. رفع ملف الـ APK لتنزيله على هاتفك مباشرة
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
