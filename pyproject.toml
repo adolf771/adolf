@@ -1,5 +1,5 @@
 [project]
-name = "animerift"
+name = "animepalestine"
 version = "1.0.0"
 dependencies = [
     "flet",
@@ -7,4 +7,4 @@ dependencies = [
 ]
 
 [tool.flet.android]
-package = "com.mohammad.animerift"
+package = "com.mohammad.animepalestine"
