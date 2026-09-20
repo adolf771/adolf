@@ -6,7 +6,7 @@ TMDB_API_KEY = "af9a9f29019a8416529a60c07110347d"
 BASE_URL = "https://themoviedb.org"
 
 def main(page: ft.Page):
-    page.title = "Anime Rift - عالم الأنمي"
+    page.title = "anime Palestine - عالم الأنمي"
     page.theme_mode = ft.ThemeMode.DARK
     page.padding = 10
     page.rtl = True # دعم الواجهة العربية الكاملة
@@ -80,11 +80,11 @@ def main(page: ft.Page):
     search_input = ft.TextField(hint_text="ابحث عن أنمي...", expand=True, height=45)
     search_btn = ft.IconButton(icon=ft.icons.SEARCH, on_click=lambda e: load_anime(search_input.value))
 
-    # بناء واجهة التطبيق
+    # بناء واجهة التطبيق بالشعار الجديد
     page.add(
         ft.Row([
-            ft.Text("ANIME ", size=22, weight=ft.FontWeight.BOLD),
-            ft.Text("RIFT", size=22, weight=ft.FontWeight.BOLD, color=ft.colors.RED)
+            ft.Text("anime ", size=22, weight=ft.FontWeight.BOLD),
+            ft.Text("Palestine", size=22, weight=ft.FontWeight.BOLD, color=ft.colors.RED)
         ], alignment=ft.MainAxisAlignment.CENTER),
         ft.Row([search_input, search_btn]),
         anime_grid
