@@ -1,0 +1,10 @@
+[project]
+name = "animerift"
+version = "1.0.0"
+dependencies = [
+    "flet",
+    "requests"
+]
+
+[tool.flet.android]
+package = "com.mohammad.animerift"
