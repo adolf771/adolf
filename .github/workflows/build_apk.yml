@@ -22,13 +22,21 @@ jobs:
         with:
           python-version: '3.10'
 
+      # خطوة أساسية لإعداد وتثبيت الـ Flutter SDK المطلوب لمنع خطأ التوقف
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.x' # إصدار متوافق ومستقر مع متطلبات Flet
+          channel: 'stable'
+
       - name: Install Flet and Dependencies
         run: |
           pip install flet requests
 
+      # تشغيل البناء مع إضافة خيار --no-interactive لمنع أي أسئلة تطلب مدخلات يدوية
       - name: Build Android APK
         run: |
-          flet build apk
+          flet build apk --no-interactive
         env:
           TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
           
