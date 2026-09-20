@@ -93,4 +93,4 @@ def main(page: ft.Page):
     # تحميل الأنميات الشائعة عند فتح التطبيق فوراً
     load_anime()
 
-ft.app(target=main)
+ft.run(main)
